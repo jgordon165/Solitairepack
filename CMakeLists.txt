@@ -60,7 +60,8 @@ add_library(solitairepack_formats STATIC
     src/formats/ne.cpp
     src/formats/dib.cpp
     src/formats/dialog.cpp
-    src/formats/menu.cpp)
+    src/formats/menu.cpp
+    src/formats/expand.cpp)
 target_include_directories(solitairepack_formats PUBLIC src)
 solitairepack_warnings(solitairepack_formats)
 
@@ -91,7 +92,7 @@ add_dependencies(copy_scripts solitairepack)
 
 # ---- Tests -------------------------------------------------------------------
 # No game data is in the repository, so CI runs only the data-free tests.
-# Configure with SOLITAIREPACK_DATA=<folder with SOL.EXE and CARDS.DLL> in the
+# Configure with SOLITAIREPACK_DATA=<folder with SOL.EXE, or a setup disk> in the
 # environment to also run the tests against the real files.
 if(SOLITAIREPACK_TESTS)
     enable_testing()
@@ -108,6 +109,8 @@ if(SOLITAIREPACK_TESTS)
     set(lua_test_args --scripts ${CMAKE_SOURCE_DIR}/tests/lua --frames 1)
     if(DEFINED ENV{SOLITAIREPACK_DATA})
         list(APPEND lua_test_args --data $ENV{SOLITAIREPACK_DATA})
+    else()
+        list(APPEND lua_test_args --data ${CMAKE_BINARY_DIR}/no-such-folder)
     endif()
     add_test(NAME lua COMMAND solitairepack ${lua_test_args})
     set_tests_properties(lua PROPERTIES ENVIRONMENT

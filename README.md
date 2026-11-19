@@ -8,9 +8,10 @@ a C++ engine (SDL2) running game logic written in Lua. A sister project of
 [Tetrispack](https://github.com/jgordon165/Tetrispack), on the same engine
 and pipelines.
 
-**No original game code or data is included.** The engine reads the card
-art from the player's own `CARDS.DLL`, and the menus and dialogs from their
-`SOL.EXE`, at runtime, the same way ScummVM and OpenRCT2 work. Original
+**No original game code or data is included.** The engine reads the cards,
+menus, dialogs and text from the player's own `SOL.EXE` at runtime (it can
+read it straight off a Windows 3.1 setup disk), the same way ScummVM and
+OpenRCT2 work. Original
 files are git-ignored as a safety net, and release packages are checked for
 them.
 
@@ -30,17 +31,26 @@ or open the folder in Visual Studio.
 
 ## Run
 
-Point the engine at a folder holding your `SOL.EXE` and `CARDS.DLL` (a
-Windows 3.1 `WINDOWS` folder works: it finds `CARDS.DLL` in `SYSTEM`):
+Point the engine at a folder holding your `SOL.EXE`: a Windows 3.1
+`WINDOWS` folder, or the Windows 3.1 setup disk or CD itself, where it's
+compressed as `SOL.EX_` (the port expands it, as Setup would):
 
 ```
-build\Release\solitairepack.exe --data C:\WIN31
+build\Release\solitairepack.exe --data E:\
+build\Release\solitairepack.exe --data C:\WINDOWS
 ```
+
+Without `--data` it looks in a `data` folder beside the program, the
+program's folder, then (on Windows) the root and `WINDOWS` folder of each
+drive, so with the Windows 3.1 CD or disk image mounted it just finds it.
+
+Windows 3.0 and 3.1 keep the cards inside `SOL.EXE`. Without it, a 16-bit
+`CARDS.DLL` (Windows for Workgroups) can stand in for the cards.
 
 It opens like the original maximized on a 640x480 screen, shown at 1.5x
 (960x660; `--scale` changes it, and the window can be resized): the green
 table, the stock, the waste, the four foundations and the seven columns.
-Without `CARDS.DLL` it still runs, with plain cards of its own.
+Without `SOL.EXE` it still runs, with plain cards of its own.
 
 **Playing.** Click the deck to turn over cards (one or three, Game >
 Options). Drag a card, or a run of face-up cards, to move it; drop it where
@@ -65,13 +75,14 @@ opens the menus.
 
 **Menus and dialogs** are drawn in Windows 3.1's look. Game: Deal, Undo,
 Deck..., Options..., Exit. Help: the rules and the keys, About. With
-`SOL.EXE` beside `CARDS.DLL` the menus and the Options and Select Card Back
-dialogs are laid out from its own resources.
+`SOL.EXE` the menus, the Options and Select Card Back dialogs and the
+status bar's text come from its own resources.
 
 **Options.** Draw One or Draw Three; Standard, Vegas or no scoring; Timed
 game; Status bar; Outline dragging; Keep score (Vegas). Changing the draw,
 the scoring or the timer deals again. The status bar shows the score and
-the time. **Deck** picks one of `CARDS.DLL`'s backs.
+the time. **Deck** picks one of the twelve backs; the robot, the castle, the
+beach and the hand come alive now and then, as in the original.
 
 **Scoring.** Standard: 10 for each card to a foundation, 5 from the deck to
 a column and for each card turned over, -15 for taking one off a
@@ -93,17 +104,17 @@ Windows, `~/.local/share/jgordon165/Solitairepack` on Linux,
 | Path | |
 |---|---|
 | `src/` | C++ host: window and drawing (`video.cpp`), input, the Lua API (`lua_api.cpp`) |
-| `src/formats/` | The NE executable and its resources (`ne.cpp`), bitmaps (`dib.cpp`), dialogs (`dialog.cpp`), menus (`menu.cpp`) |
+| `src/formats/` | The NE executable and its resources (`ne.cpp`), bitmaps (`dib.cpp`), dialogs (`dialog.cpp`), menus (`menu.cpp`), setup-disk compression (`expand.cpp`) |
 | `scripts/game/` | The rules (`rules.lua`), the cards (`cards.lua`), the table (`table.lua`), the win (`cascade.lua`), the options (`settings.lua`) |
 | `scripts/ui/` | Windows 3.1-style drawing (`win31.lua`), the menu bar, dialogs, and the port's own dialog templates |
 | `tests/` | Format tests on files built in memory, and the Lua rule and interface tests |
 | `re/`, `tools/` | Reverse-engineering workflow: identify, list and extract resources, decompile with Ghidra |
 | `docs/formats.md` | NE and resource formats as the port reads them |
-| `docs/original.md` | What the port takes from SOL.EXE and CARDS.DLL: layout, rules, scoring |
+| `docs/original.md` | What the port takes from SOL.EXE: layout, rules, scoring |
 
-To also test against your own files, configure with the folder in
-`SOLITAIREPACK_DATA` (the format tests then parse every bitmap, menu and
-dialog in them):
+To also test against your own files, configure with the folder (or setup
+disk) in `SOLITAIREPACK_DATA` (the format tests then parse every bitmap,
+menu and dialog in SOL.EXE):
 
 ```
 SOLITAIREPACK_DATA=/path/to/WIN31 cmake -S . -B build && ctest --test-dir build
@@ -130,4 +141,4 @@ Same pipelines as Tetrispack and Meguarace:
 
 Windows and Solitaire are trademarks of Microsoft. This project is not
 affiliated with Microsoft, and you need your own copy of Windows 3.1's
-`SOL.EXE` and `CARDS.DLL`.
+`SOL.EXE`.

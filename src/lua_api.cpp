@@ -40,9 +40,9 @@ void roundCorners(tp::Image& img) {
     }
 }
 
-// sp.has_data() -> bool (CARDS.DLL loaded), error message, bool (SOL.EXE loaded)
+// sp.has_data() -> bool (card art: SOL.EXE or CARDS.DLL), error message, bool (SOL.EXE loaded)
 int l_has_data(lua_State* L) {
-    lua_pushboolean(L, eng(L)->cards.has_value());
+    lua_pushboolean(L, eng(L)->module("cards").has_value());
     lua_pushstring(L, eng(L)->dataError.c_str());
     lua_pushboolean(L, eng(L)->sol.has_value());
     return 3;
@@ -52,7 +52,7 @@ const std::optional<tp::NeFile>& moduleArg(lua_State* L, int i) {
     return eng(L)->module(luaL_optstring(L, i, "cards"));
 }
 
-// sp.module(["sol"]) -> the module name and its expected Windows version
+// sp.module(["sol" | "cards"]) -> the module name and its expected Windows version
 // (nil when that file isn't there)
 int l_module(lua_State* L) {
     const auto& e = moduleArg(L, 1);
@@ -81,9 +81,13 @@ int l_resources(lua_State* L) {
     return 1;
 }
 
-// sp.bitmap("NAME" or "#12" or 12 [, "cards" | "sol" [, round]]) -> handle,
-// width, height | nil, error. round: clear the corner pixels, as CARDS.DLL's
-// cdtDraw paints a card's corners in the table colour.
+// sp.bitmap("NAME" or "#12" or 12 [, "cards" | "sol" [, opts]]) -> handle,
+// width, height | nil, error. opts (a table, or true for { round = true }):
+//   round: clear the corner pixels, as a card's corners show the table
+//   clear_white: white pixels transparent (a monochrome bitmap the original
+//     draws with the table as its background, such as the empty-pile pattern)
+//   black_frame: the outermost ring of pixels black (the red cards are
+//     monochrome bitmaps drawn in red; the original draws their edge black)
 int l_bitmap(lua_State* L) {
     const auto& e = moduleArg(L, 2);
     if (!e) { lua_pushnil(L); lua_pushstring(L, "no game data"); return 2; }
@@ -93,7 +97,28 @@ int l_bitmap(lua_State* L) {
     if (!r) { lua_pushnil(L); lua_pushstring(L, "no such bitmap"); return 2; }
     try {
         auto img = tp::decodeDib(e->read(*r));
-        if (lua_toboolean(L, 3)) roundCorners(img);
+        bool round = false, clearWhite = false, blackFrame = false;
+        if (lua_istable(L, 3)) {
+            lua_getfield(L, 3, "round"); round = lua_toboolean(L, -1);
+            lua_getfield(L, 3, "clear_white"); clearWhite = lua_toboolean(L, -1);
+            lua_getfield(L, 3, "black_frame"); blackFrame = lua_toboolean(L, -1);
+            lua_pop(L, 3);
+        } else {
+            round = lua_toboolean(L, 3);
+        }
+        if (clearWhite)
+            for (auto& px : img.rgba)
+                if ((px & 0x00FFFFFFu) == 0x00FFFFFFu) px = 0;
+        if (blackFrame && img.width > 2 && img.height > 2) {
+            const uint32_t white = tp::packRGBA(255, 255, 255), black = tp::packRGBA(0, 0, 0);
+            auto edge = [&](int x, int y) {
+                uint32_t& px = img.rgba[static_cast<size_t>(y) * img.width + x];
+                if (px != white) px = black;
+            };
+            for (int x = 0; x < img.width; ++x) { edge(x, 0); edge(x, img.height - 1); }
+            for (int y = 0; y < img.height; ++y) { edge(0, y); edge(img.width - 1, y); }
+        }
+        if (round) roundCorners(img);
         lua_pushinteger(L, eng(L)->video.addImage(img));
         lua_pushinteger(L, img.width);
         lua_pushinteger(L, img.height);

@@ -10,20 +10,22 @@
 
 struct Engine {
     Video video;
-    std::string dataArg;              // --data: folder holding SOL.EXE and CARDS.DLL, or SOL.EXE itself
-    std::optional<tp::NeFile> sol;    // SOL.EXE: menus, dialogs, strings, icons
-    std::optional<tp::NeFile> cards;  // CARDS.DLL: the card faces and backs
+    std::string dataArg;              // --data: folder holding SOL.EXE (or SOL.EX_), or the file itself
+    std::optional<tp::NeFile> sol;    // SOL.EXE: menus, dialogs, strings, and in 3.0/3.1 the cards
+    std::optional<tp::NeFile> cards;  // CARDS.DLL (16-bit), used for the cards only without SOL.EXE
     Storage storage;                  // options and the Vegas bank between runs
     std::string dataError;            // why there's no data, for the no-data screen
     bool quit = false;
     int exitCode = 0;
 
-    // Finds and parses SOL.EXE and CARDS.DLL. Returns false (and sets
-    // dataError) unless CARDS.DLL was found: without it there are no cards.
+    // Finds and parses SOL.EXE and CARDS.DLL, installed or compressed.
+    // Returns false (and sets dataError) when neither was found.
     bool loadData();
 
-    // "sol" selects SOL.EXE, anything else (or nothing) CARDS.DLL.
+    // "sol" selects SOL.EXE; "cards" (or nothing) the file holding the card
+    // art: SOL.EXE, or CARDS.DLL when there's no SOL.EXE.
     const std::optional<tp::NeFile>& module(const std::string& which) const {
-        return which == "sol" ? sol : cards;
+        if (which == "sol") return sol;
+        return sol ? sol : cards;
     }
 };

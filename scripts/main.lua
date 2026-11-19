@@ -27,6 +27,30 @@ local kb           -- the keyboard / controller cursor
 local win          -- the cascade, once the game is won
 local deal_count = 0
 
+-- The animated backs play now and then on the stock: a pause, then the
+-- frames one after another (docs/original.md: timing to check).
+local anim = { wait = 6, frame = nil, t = 0 }
+local ANIM_FRAME_TIME = 0.6
+
+local function animate(dt)
+    local a = cards.ANIMATIONS[S.back]
+    if not a or #g.stock == 0 then anim.frame = nil; return end
+    if anim.frame then
+        anim.t = anim.t + dt
+        if anim.t >= ANIM_FRAME_TIME then
+            anim.t = 0
+            anim.frame = anim.frame + 1
+            if anim.frame > #a.frames then
+                anim.frame = nil
+                anim.wait = 5 + math.random() * 10
+            end
+        end
+    else
+        anim.wait = anim.wait - dt
+        if anim.wait <= 0 then anim.frame, anim.t = 1, 0 end
+    end
+end
+
 local function area()
     local y0 = Bar.H
     local h = H - y0 - (S.status and STATUS_H or 0)
@@ -116,23 +140,12 @@ local function open_options()
 end
 
 local function open_deck()
-    local ids = cards.back_ids()
-    local t = templates.find_sol("select card back")
-    local owner_ids = nil
-    if t then
-        -- SOL.EXE's owner-drawn buttons, in order, are the backs.
-        owner_ids = {}
-        local k = 0
-        for _, c in ipairs(t.controls) do
-            if (c.class or ""):lower() == "button" and (c.style & 0xF) == 11 then
-                k = k + 1
-                owner_ids[c.id] = ids[k]
-            end
-        end
-    else
-        t = templates.deck(ids)
+    -- SOL.EXE's dialog numbers each owner-drawn button with the bitmap id
+    -- of its back (in its own order); the port's stand-in does the same.
+    local t = templates.find_sol("select card back") or templates.deck(cards.back_ids())
+    local function back_of(c)
+        if (c.class or ""):lower() == "button" and (c.style & 0xF) == 11 then return c.id end
     end
-    local function back_of(c) return owner_ids and owner_ids[c.id] or c.id end
     local selected
     for _, c in ipairs(t.controls) do if back_of(c) == S.back then selected = c.id end end
     modal = Dialog.new({
@@ -140,26 +153,18 @@ local function open_deck()
         draw_owner = function(c, x, y, w, h, sel, focus)
             local id = back_of(c)
             if not id then return end
-            local cw, ch = math.min(w - 8, cards.W), math.min(h - 8, cards.H)
-            local cx, cy = x + (w - cw) // 2, y + (h - ch) // 2
-            if cw == cards.W and ch == cards.H then cards.draw_back(id, cx, cy)
-            else
-                -- Smaller than a card: the back's middle.
-                sp.fill(cx, cy, cw, ch, 255, 255, 255)
-                cards.draw_back(id, cx - (cards.W - cw) // 2, cy - (cards.H - ch) // 2)
-                sp.fill(x, y, w, (h - ch) // 2, 255, 255, 255)
-            end
+            -- The back, shrunk to fit, inside the button.
+            local m = 4
+            cards.draw_back_scaled(id, x + m, y + m, w - 2 * m, h - 2 * m)
             if sel then
                 for k = 0, 2 do w31.box(x + k, y + k, w - 2 * k, h - 2 * k, w31.BLACK) end
             end
-            if focus then w31.dotted(x + 3, y + 3, w - 6, h - 6) end
+            if focus then w31.dotted(x + 1, y + 1, w - 2, h - 2) end
         end,
         onclose = function(d, id, key)
             modal = nil
             if key == "ok" and d.selected then
-                for _, c in ipairs(t.controls) do
-                    if c.id == d.selected and back_of(c) then S.back = back_of(c) end
-                end
+                S.back = d.selected
                 save()
             end
         end,
@@ -174,14 +179,14 @@ end
 local function about()
     local lines = {
         "Microsoft Solitaire",
-        sp.exe_string("by Wes", "sol") or "by Wes Cherry",
+        sp.string(108) or "Developed for Microsoft by Wes Cherry",
         "",
         "Played by Solitairepack, an open-source",
-        "port. The card art is read from your own",
-        "CARDS.DLL; nothing of the original is",
+        "port. The cards are read from your own",
+        "SOL.EXE; nothing of the original is",
         "included with it.",
     }
-    if not cards.have_art then lines[#lines + 1] = ""; lines[#lines + 1] = "(CARDS.DLL not found: plain cards.)" end
+    if not cards.have_art then lines[#lines + 1] = ""; lines[#lines + 1] = "(SOL.EXE not found: plain cards.)" end
     message("About Solitaire", lines, { "OK" })
 end
 
@@ -234,7 +239,7 @@ end
 local function end_win()
     if not win then return end
     win = nil
-    message("Solitaire", { "Deal again?" }, { "&Yes", "&No" }, function(key)
+    message(sp.string(100) or "Solitaire", { sp.string(104) or "Deal Again?" }, { "&Yes", "&No" }, function(key)
         if key == "yes" then game.deal() end
     end)
 end
@@ -250,7 +255,8 @@ function game.load()
     sp.title("Solitaire")
     S = settings.load()
     cards.load()
-    -- A back that isn't in this CARDS.DLL falls back to the first.
+    -- A back that isn't in this file (or the empty-pile pattern, 53, which an
+    -- earlier version offered as a back) falls back to the first.
     local ok = false
     for _, id in ipairs(cards.back_ids()) do if id == S.back then ok = true end end
     if not ok then S.back = cards.back_ids()[1] end
@@ -459,6 +465,7 @@ end
 function game.update(dt)
     game.last_dt = dt   -- the cascade runs in game.draw, at this frame's pace
     if not modal and not win and not bar:is_open() then g:tick(dt) end
+    if not win then animate(dt) end
 end
 
 local function draw_status()
@@ -466,16 +473,22 @@ local function draw_status()
     local y = H - STATUS_H
     w31.rect(0, y, W, STATUS_H, w31.WHITE)
     sp.fill(0, y, W, 1, 0, 0, 0)
+    -- The labels are SOL.EXE's own strings when it's there.
     local parts = {}
+    local score_label = sp.string(101) or "Score: "
     if g.scoring == "vegas" then
-        parts[#parts + 1] = "Score: " .. (g.score < 0 and "-$" .. -g.score or "$" .. g.score)
+        parts[#parts + 1] = score_label .. (g.score < 0 and "-$" .. -g.score or "$" .. g.score)
     elseif g.scoring == "standard" then
-        parts[#parts + 1] = "Score: " .. g.score
+        parts[#parts + 1] = score_label .. g.score
     end
-    if g.timed then parts[#parts + 1] = "Time: " .. math.floor(g.time) end
+    if g.timed then parts[#parts + 1] = (sp.string(102) or "Time: ") .. math.floor(g.time) end
     local s = table.concat(parts, "     ")
     w31.text(W - 10 - w31.width(s), y + 4, s)
-    if g.bonus > 0 then w31.text(8, y + 4, "Bonus: " .. g.bonus) end
+    if win then
+        w31.text(8, y + 4, sp.string(106) or "Click or press Esc to stop...")
+    elseif g.bonus > 0 then
+        w31.text(8, y + 4, (sp.string(107) or "Bonus: ") .. g.bonus)
+    end
 end
 
 local function draw_dragged()
@@ -525,7 +538,7 @@ function game.draw()
     sp.clear(cards.TABLE[1], cards.TABLE[2], cards.TABLE[3])
     local held = drag and drag.moved and not S.outline and drag or nil
     if kb and kb.held and not drag then held = nil end
-    table_.draw(L, g, S.back, held)
+    table_.draw(L, g, S.back, held, anim.frame)
     draw_dragged()
     draw_cursor()
     if win then win.fresh = false end

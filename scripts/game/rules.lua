@@ -5,7 +5,7 @@
 -- numbers come from.
 --
 -- A card is { rank = 1..13, suit = 0..3, up = bool }; suits are in
--- CARDS.DLL's order: 0 clubs, 1 diamonds, 2 hearts, 3 spades.
+-- SOL.EXE's bitmap order: 0 clubs, 1 diamonds, 2 hearts, 3 spades.
 -- Piles are named { kind, index }: "stock", "waste", "found" 1-4, "tab" 1-7.
 
 local M = {}

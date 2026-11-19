@@ -1,16 +1,29 @@
--- The card art, from the player's CARDS.DLL (Windows 3.1): 71 x 96 bitmaps,
--- faces 1-52 (clubs A-K, diamonds, hearts, spades), the backs from 53, and
--- the marks drawn on an empty stock: 67 the X (no more passes) and 68 the O
--- (click to turn the waste over). Without CARDS.DLL the port draws plain
--- cards of its own. See docs/original.md.
+-- The card art: 71 x 96 bitmaps in Windows 3.1's SOL.EXE (or a 16-bit
+-- CARDS.DLL standing in for it): faces 1-52 (clubs A-K, diamonds, hearts,
+-- spades), 53 the dotted pattern of an empty pile, the twelve backs 54-65,
+-- the marks on an empty stock (67 the X: no more passes; 68 the O: click to
+-- turn the waste over), and 678-684, the frames four of the backs animate
+-- with. Without the files the port draws plain cards of its own. See
+-- docs/original.md.
 
 local M = {}
 
 M.W, M.H = 71, 96
-M.FIRST_BACK, M.LAST_BACK = 53, 65
+M.FIRST_BACK, M.LAST_BACK = 54, 65
+M.EMPTY = 53
 M.X_MARK, M.O_MARK = 67, 68
 
-local faces, backs, marks = {}, {}, {}
+-- The animated backs: the frames (bitmap ids) drawn over the back at
+-- (x, y), in turn, now and then (docs/original.md).
+M.ANIMATIONS = {
+    [56] = { x = 24, y = 40, frames = { 683, 684, 683, 684, 683, 684 } },   -- the robot's lights
+    [63] = { x = 42, y = 12, frames = { 680 } },                          -- bats over the castle
+    [64] = { x = 47, y = 1, frames = { 681, 682 } },                      -- the sun: sunglasses, then a tongue
+    [65] = { x = 32, y = 32, frames = { 678, 679 } },                     -- a card up the sleeve
+}
+
+local faces, backs, marks, frames = {}, {}, {}, {}
+local empty
 M.have_art = false
 
 -- The table: Windows 3.1's Solitaire green.
@@ -19,14 +32,17 @@ M.TABLE = { 0, 128, 0 }
 function M.face_id(card) return card.suit * 13 + card.rank end
 
 function M.load()
-    faces, backs, marks = {}, {}, {}
+    faces, backs, marks, frames = {}, {}, {}, {}
+    empty = nil
     M.have_art = false
     if not sp.has_data() then return end
     local n = 0
     for suit = 0, 3 do
         for rank = 1, 13 do
             local id = suit * 13 + rank
-            local h, w, ht = sp.bitmap(id, "cards", true)
+            -- Diamonds and hearts: red, with a black edge.
+            local red = suit == 1 or suit == 2
+            local h, w, ht = sp.bitmap(id, "cards", { round = true, black_frame = red })
             if h then faces[id] = h; n = n + 1; M.W, M.H = w, ht end
         end
     end
@@ -39,10 +55,21 @@ function M.load()
         local h = sp.bitmap(id, "cards", true)
         if h then marks[id] = h end
     end
+    -- A monochrome bitmap the original draws with the table green as its
+    -- background: its white is left clear.
+    empty = sp.bitmap(M.EMPTY, "cards", { round = true, clear_white = true })
+    for _, a in pairs(M.ANIMATIONS) do
+        for _, id in ipairs(a.frames) do
+            if not frames[id] then
+                local h, w, ht = sp.bitmap(id, "cards")
+                if h then frames[id] = { h = h, w = w, ht = ht } end
+            end
+        end
+    end
     M.have_art = n == 52
 end
 
--- The backs on offer in Game > Deck (their CARDS.DLL ids).
+-- The backs on offer in Game > Deck (their bitmap ids).
 M.backs = {}
 function M.back_ids()
     if #M.backs > 0 then return M.backs end
@@ -51,7 +78,7 @@ function M.back_ids()
     return ids
 end
 
--- ---- the port's own plain cards (no CARDS.DLL) ----------------------------
+-- ---- the port's own plain cards (no SOL.EXE) ------------------------------
 
 local function frame(x, y, w, h)
     sp.fill(x + 2, y, w - 4, 1, 0, 0, 0)
@@ -109,21 +136,38 @@ function M.draw_face(card, x, y, flip)
     end
 end
 
-function M.draw_back(back_id, x, y)
+-- frame: which of the back's animation frames to draw over it (nil: none).
+function M.draw_back(back_id, x, y, frame)
     local h = backs[back_id] or backs[M.FIRST_BACK]
-    if h then sp.draw(h, 0, 0, M.W, M.H, x, y) else plain_back(back_id, x, y) end
+    if not h then plain_back(back_id, x, y); return end
+    sp.draw(h, 0, 0, M.W, M.H, x, y)
+    local a = frame and M.ANIMATIONS[back_id]
+    local f = a and frames[a.frames[frame]]
+    if f then sp.draw(f.h, 0, 0, f.w, f.ht, x + a.x, y + a.y) end
+end
+
+-- A back shrunk into a w x h box (the Select Card Back buttons).
+function M.draw_back_scaled(back_id, x, y, w, h)
+    local hd = backs[back_id]
+    if hd then sp.draw(hd, 0, 0, M.W, M.H, x, y, w, h) else
+        sp.fill(x, y, w, h, 0, 0, 160)
+    end
 end
 
 function M.draw(card, x, y, back_id)
     if card.up then M.draw_face(card, x, y) else M.draw_back(back_id, x, y) end
 end
 
--- An empty pile's place: the outline in the table's darker green (the
--- original draws it with CARDS.DLL's empty-pile mode), or the stock's X or O.
+-- An empty pile's place: the dotted outline (bitmap 53), or the stock's X
+-- or O.
 function M.draw_empty(x, y, mark)
     local h = mark and marks[mark]
     if h then
         sp.draw(h, 0, 0, M.W, M.H, x, y)
+        return
+    end
+    if not mark and empty then
+        sp.draw(empty, 0, 0, M.W, M.H, x, y)
         return
     end
     local r, g, b = 0, 80, 0

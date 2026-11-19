@@ -1,10 +1,11 @@
 // The 16-bit Windows "New Executable" (NE) format: Windows 3.x programs such
-// as Windows 3.1's SOL.EXE and CARDS.DLL. We read its resource table, which
+// as Windows 3.1's SOL.EXE. We read its resource table, which
 // holds the art (BITMAP), icons, menus, dialogs and string tables. See
 // docs/formats.md.
 #pragma once
 
 #include "formats/binreader.h"
+#include "formats/expand.h"
 
 #include <cstdint>
 #include <optional>
@@ -44,7 +45,9 @@ public:
     // Throws FormatError when the data isn't an NE executable.
     explicit NeFile(std::vector<uint8_t> data);
 
-    static NeFile load(const std::string& path) { return NeFile(readFile(path)); }
+    // Reads a file, expanding it first when it's compressed (SOL.EX_ from
+    // a Windows 3.1 setup disk).
+    static NeFile load(const std::string& path) { return NeFile(expand(readFile(path))); }
 
     const std::string& moduleName() const { return moduleName_; }
     uint8_t expectedWindowsMajor() const { return winMajor_; }
