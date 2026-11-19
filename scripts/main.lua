@@ -239,8 +239,9 @@ local function end_win()
     end)
 end
 
--- The game in play, for the tests.
+-- The game in play and the table's layout, for the tests.
 function game.current() return g end
+function game.layout() return L end
 
 -- ---- startup ----------------------------------------------------------------------
 
@@ -270,8 +271,9 @@ local function overlap(ax, ay, bx, by)
     return w * h
 end
 
--- The pile the dragged cards are mostly over, where they'd be legal.
-local function drop_target(x, y)
+-- The pile the dragged cards (run, its top-left at x, y) are mostly over,
+-- where they'd be legal.
+local function drop_target(run, x, y)
     local best, bk, bi = 0, nil, nil
     local function try(kind, index)
         local p = g:pile(kind, index)
@@ -283,7 +285,7 @@ local function drop_target(x, y)
             tx, ty = table_.pile_base(L, kind, index)
         end
         local a = overlap(x, y, tx, ty)
-        if a > best and g:can_drop(drag.run, kind, index) then best, bk, bi = a, kind, index end
+        if a > best and g:can_drop(run, kind, index) then best, bk, bi = a, kind, index end
     end
     for f = 1, 4 do try("found", f) end
     for t = 1, 7 do try("tab", t) end
@@ -304,7 +306,7 @@ local function finish_drag()
     local d = drag
     drag = nil
     if not d or not d.moved then return end
-    local kind, index = drop_target(d.x, d.y)
+    local kind, index = drop_target(d.run, d.x, d.y)
     if kind then g:move(d.kind, d.index, d.i, kind, index) end
     check_win()
 end

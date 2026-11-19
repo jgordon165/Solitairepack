@@ -113,6 +113,12 @@ if(SOLITAIREPACK_TESTS)
     set_tests_properties(lua PROPERTIES ENVIRONMENT
         "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;SOLITAIREPACK_SCRIPTS=${CMAKE_SOURCE_DIR}/scripts")
 
+    # Random play: 12,000 clicks, drags and keys without an error or a lost card.
+    add_test(NAME fuzz COMMAND solitairepack --scripts ${CMAKE_SOURCE_DIR}/tests/fuzz --frames 300
+             --data ${CMAKE_BINARY_DIR}/no-such-folder)
+    set_tests_properties(fuzz PROPERTIES ENVIRONMENT
+        "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;SOLITAIREPACK_SCRIPTS=${CMAKE_SOURCE_DIR}/scripts")
+
     # The shipped game must at least boot, deal and draw without data.
     add_test(NAME boot COMMAND solitairepack --data ${CMAKE_BINARY_DIR}/no-such-folder --frames 120 --seed 1
              --scripts ${CMAKE_SOURCE_DIR}/scripts)

@@ -77,6 +77,17 @@ bool Engine::loadData() {
     return true;
 }
 
+// In a normal run a script error is reported (once, in a message box, and
+// every time on stderr) and the game carries on, rather than closing the
+// window mid-game. Headless (test) runs stop on the first error instead.
+static bool g_keepGoing = false;
+static bool g_reported = false;
+
+static int traceback(lua_State* L) {
+    luaL_traceback(L, L, lua_tostring(L, 1), 1);
+    return 1;
+}
+
 static bool callLua(lua_State* L, const char* fn, int nargs) {
     lua_getglobal(L, "game");
     if (!lua_istable(L, -1)) { lua_pop(L, 1 + nargs); return true; }
@@ -84,11 +95,23 @@ static bool callLua(lua_State* L, const char* fn, int nargs) {
     lua_remove(L, -2);
     if (!lua_isfunction(L, -1)) { lua_pop(L, 1 + nargs); return true; }
     lua_insert(L, -1 - nargs);
-    if (lua_pcall(L, nargs, 0, 0) != LUA_OK) {
-        std::fprintf(stderr, "lua error in game.%s: %s\n", fn, lua_tostring(L, -1));
-        lua_pop(L, 1);
-        return false;
+    lua_pushcfunction(L, traceback);
+    lua_insert(L, -2 - nargs);
+    const int handler = lua_gettop(L) - nargs - 1;
+    if (lua_pcall(L, nargs, 0, handler) != LUA_OK) {
+        const std::string msg = std::string("lua error in game.") + fn + ": " + lua_tostring(L, -1);
+        lua_pop(L, 2);  // the message and the handler
+        std::fprintf(stderr, "%s\n", msg.c_str());
+        if (!g_keepGoing) return false;
+        if (!g_reported) {
+            g_reported = true;
+            const std::string box = msg + "\n\nThe game will keep running. Please report this at "
+                                          "https://github.com/jgordon165/Solitairepack/issues";
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Solitairepack: script error", box.c_str(), nullptr);
+        }
+        return true;
     }
+    lua_pop(L, 1);  // the handler
     return true;
 }
 
@@ -147,6 +170,7 @@ int main(int argc, char** argv) {
 
     // Options and the Vegas bank persist, except in headless (test) runs.
     const bool headless = maxFrames >= 0;
+    g_keepGoing = !headless;
     eng.storage.open(!headless);
 
     lua_State* L = luaL_newstate();
