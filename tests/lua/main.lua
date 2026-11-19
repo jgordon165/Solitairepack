@@ -235,6 +235,72 @@ do
     end
 end
 
+-- ---- moving cards with the mouse, through the game's input -----------------------------------------
+-- (A drop used to crash: the drag was cleared before its cards were checked.)
+if game and game.current then
+    local t = require("game.table")
+    local cards = require("game.cards")
+    local ok, err = pcall(function()
+        game.keypressed("f2", false)
+        local g, L = game.current(), game.layout()
+        g.stock, g.waste, g.found = {}, {}, { {}, {}, {}, {} }
+        for i = 1, 7 do g.tab[i] = {} end
+        g.tab[1] = { C(10, 3) }
+        g.tab[2] = { C(5, 0, false), C(9, 2), C(8, 3) }
+        g.tab[3] = { C(1, 1) }
+        g.waste = { C(7, 2) }
+        local function centre(kind, index, i)
+            local cs = t.pile_cards(L, g, kind, index)
+            local r = cs[i or #cs]
+            return r.x + cards.W // 2, r.y + 6
+        end
+        local function drag(fx, fy, tx, ty)
+            game.mousepressed(fx, fy, "left", 1)
+            game.mousemoved((fx + tx) // 2, (fy + ty) // 2)
+            game.mousemoved(tx, ty)
+            game.draw()
+            game.mousereleased(tx, ty, "left")
+            game.update(1 / 60); game.draw()
+        end
+        -- A run (9H 8S) onto the 10S.
+        local fx, fy = centre("tab", 2, 2)
+        local tx, ty = centre("tab", 1)
+        drag(fx, fy, tx, ty + 15)
+        check(#g.tab[1] == 3 and g.tab[1][2].rank == 9 and #g.tab[2] == 1, "drag a run onto a column")
+        -- An illegal drop: the 7H back where it was.
+        fx, fy = centre("waste")
+        tx, ty = centre("tab", 3)
+        drag(fx, fy, tx, ty)
+        check(#g.waste == 1 and #g.tab[3] == 1, "an illegal drop puts the card back")
+        -- Legal from the waste: 7H onto the 8S.
+        tx, ty = centre("tab", 1)
+        drag(fx, fy, tx, ty)
+        check(#g.waste == 0 and #g.tab[1] == 4, "drag from the waste")
+        -- The ace to a foundation by dragging, then back off it.
+        fx, fy = centre("tab", 3)
+        drag(fx, fy, L.found[2].x + 30, L.found[2].y + 30)
+        check(#g.found[2] == 1 and #g.tab[3] == 0, "drag an ace to a foundation")
+        -- Dropped on nothing at all.
+        fx, fy = centre("tab", 1, 4)
+        drag(fx, fy, 320, 400)
+        check(#g.tab[1] == 4, "a drop on the bare table puts it back")
+        -- Turning over and double-clicking.
+        fx, fy = centre("tab", 2)
+        game.mousepressed(fx, fy, "left", 1); game.mousereleased(fx, fy, "left")
+        check(g.tab[2][1].up, "click turns a card over")
+        -- One more: the 6C onto the 7H, then Undo.
+        g.tab[5] = { C(6, 0) }
+        fx, fy = centre("tab", 5)
+        tx, ty = centre("tab", 1)
+        game.mousepressed(fx, fy, "left", 1); game.mousemoved(tx, ty); game.draw()
+        game.mousereleased(tx, ty, "left")
+        check(#g.tab[1] == 5 and #g.tab[5] == 0, "drag the 6C onto the 7H")
+        game.keypressed("backspace", false)
+        check(#g.tab[5] == 1, "undo the drag")
+    end)
+    check(ok, "moving cards with the mouse: " .. tostring(err))
+end
+
 sp.log(string.format("lua: %d checks, %d failed", checks, failures))
 game = game or {}
 local quit_code = failures > 0 and 1 or 0
