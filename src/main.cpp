@@ -1,10 +1,11 @@
 // Solitairepack: C++ host for a port of Solitaire from Windows 3.1 (1992).
 // Owns the window and input, and runs the game logic written in Lua
 // (scripts/). The original's card art and text are read at runtime from the
-// player's own SOL.EXE and CARDS.DLL; nothing from them is compiled in or
-// shipped.
+// player's own SOL.EXE (and CARDS.DLL, when they have one); nothing from
+// them is compiled in or shipped.
 //
-// Usage: solitairepack --data <folder with SOL.EXE and CARDS.DLL>
+// Usage: solitairepack --data <folder with SOL.EXE, or a Windows 3.1 setup
+//                              disk with SOL.EX_>
 //                      [--scale N] [--scripts <dir>] [--seed N]
 //                      [--frames N [--screenshot out.bmp]]   (headless testing)
 
@@ -19,12 +20,18 @@ extern "C" {
 }
 
 #include <SDL.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -39,8 +46,8 @@ static fs::path findFile(const fs::path& dir, const std::string& upperName) {
     return {};
 }
 
-// Looks in dir, then one level down (a WINDOWS folder holding SYSTEM\ has
-// SOL.EXE in one and CARDS.DLL in the other).
+// Looks in dir, then one level down (a folder holding WINDOWS\, or a CD
+// holding DISK1\, ...).
 static fs::path findNear(const fs::path& dir, const std::string& upperName) {
     std::error_code ec;
     fs::path found = findFile(dir, upperName);
@@ -58,20 +65,27 @@ bool Engine::loadData() {
         dataError = "no folder " + dataArg;
         return false;
     }
-    auto load = [&](const char* name, std::optional<tp::NeFile>& out) {
-        const fs::path p = findNear(dir, name);
-        if (p.empty()) return false;
-        try {
-            out = tp::NeFile::load(p.string());
-            return true;
-        } catch (const std::exception& ex) {
-            std::fprintf(stderr, "%s: %s\n", p.string().c_str(), ex.what());
-            return false;
+    // Each file as installed, or still compressed as on the setup disks
+    // (SOL.EX_), which NeFile::load expands.
+    auto load = [&](std::initializer_list<const char*> names, std::optional<tp::NeFile>& out) {
+        for (const char* name : names) {
+            const fs::path p = findNear(dir, name);
+            if (p.empty()) continue;
+            try {
+                out = tp::NeFile::load(p.string());
+                return true;
+            } catch (const std::exception& ex) {
+                std::fprintf(stderr, "%s: %s\n", p.string().c_str(), ex.what());
+            }
         }
+        return false;
     };
-    if (!load("SOL.EXE", sol)) std::fprintf(stderr, "SOL.EXE not found in %s (using the port's own text)\n", dataArg.c_str());
-    if (!load("CARDS.DLL", cards)) {
-        dataError = "CARDS.DLL not found in " + dataArg;
+    // Windows 3.0 and 3.1 keep the cards in SOL.EXE itself. A 16-bit
+    // CARDS.DLL (Windows for Workgroups) is a fallback for them.
+    load({"SOL.EXE", "SOL.EX_"}, sol);
+    load({"CARDS.DLL", "CARDS.DL_"}, cards);
+    if (!sol && !cards) {
+        dataError = "SOL.EXE (or SOL.EX_) not found in " + dataArg;
         return false;
     }
     return true;
@@ -148,7 +162,7 @@ int main(int argc, char** argv) {
         else if (a == "--screenshot") shot = next();
         else if (a == "--seed")    seed = std::atoll(next().c_str());
         else if (a == "--help" || a == "-h") {
-            std::printf("solitairepack --data <folder with your SOL.EXE and CARDS.DLL> [--scale N] [--seed N]\n");
+            std::printf("solitairepack --data <folder with your SOL.EXE, or a Windows 3.1 setup disk> [--scale N] [--seed N]\n");
             return 0;
         }
     }
@@ -157,8 +171,43 @@ int main(int argc, char** argv) {
         scripts = (base ? std::string(base) : std::string("./")) + "scripts";
         SDL_free(base);
     }
-    if (eng.dataArg.empty()) eng.dataArg = "data";
-    if (!eng.loadData()) std::fprintf(stderr, "%s (playing with plain cards)\n", eng.dataError.c_str());
+    // Without --data: a "data" folder beside the program, the program's own
+    // folder, and on Windows each drive's root and WINDOWS folder (a
+    // Windows 3.1 CD or disk in the drive, an old install), in that order.
+    if (eng.dataArg.empty()) {
+        std::vector<std::string> tries = {"data"};
+        if (char* base = SDL_GetBasePath()) {
+            tries.push_back(std::string(base) + "data");
+            tries.push_back(base);
+            SDL_free(base);
+        }
+#ifdef _WIN32
+        // An empty CD drive must not bring up "There is no disk in the drive".
+        const UINT oldMode = SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+        for (char d = 'C'; d <= 'Z'; ++d) {
+            const std::string root = std::string(1, d) + ":\\";
+            std::error_code ec;
+            if (!fs::exists(root, ec)) continue;
+            tries.push_back(root);
+            tries.push_back(root + "WINDOWS");
+        }
+        SetErrorMode(oldMode);
+#endif
+        bool found = false;
+        for (const auto& t : tries) {
+            eng.dataArg = t;
+            eng.dataError.clear();
+            if (eng.loadData()) { found = true; break; }
+        }
+        if (!found) {
+            eng.dataArg = "data";
+            eng.dataError = "SOL.EXE not found (use --data <folder>)";
+        }
+        if (found) std::fprintf(stderr, "using %s\n", eng.dataArg.c_str());
+        else std::fprintf(stderr, "%s (playing with plain cards)\n", eng.dataError.c_str());
+    } else if (!eng.loadData()) {
+        std::fprintf(stderr, "%s (playing with plain cards)\n", eng.dataError.c_str());
+    }
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());

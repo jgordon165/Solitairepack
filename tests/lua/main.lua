@@ -231,7 +231,7 @@ do
         end)
         check(ok, "the game script runs: " .. tostring(err))
         local s = sp.storage_read("options")
-        check(s and s:find("back=54", 1, true) ~= nil, "the deck dialog saved the second back (" .. tostring(s) .. ")")
+        check(s and s:find("back=55", 1, true) ~= nil, "the deck dialog saved the second back (" .. tostring(s) .. ")")
     end
 end
 

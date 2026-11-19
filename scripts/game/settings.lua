@@ -11,7 +11,7 @@ M.defaults = {
     status = true,            -- the status bar
     outline = false,          -- Outline dragging
     keep_score = false,       -- Vegas: carry the score over
-    back = 53,                -- CARDS.DLL id of the back
+    back = 54,                -- the back's bitmap id (54-65)
     bank = 0,                 -- the carried-over Vegas score
 }
 

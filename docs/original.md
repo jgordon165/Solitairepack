@@ -1,40 +1,47 @@
 # What the port takes from Windows 3.1's Solitaire
 
 Solitaire shipped with Windows 3.0 (1990) and 3.1 (1992), written by Wes
-Cherry: `SOL.EXE`, with the card art in `CARDS.DLL`. It's Klondike. None of
+Cherry: `SOL.EXE`, the card art inside it. It's Klondike. None of
 the original's code or data is in this repository; the values below are
 what the port's own Lua uses (`scripts/game/rules.lua`,
 `scripts/game/table.lua`).
 
-Status: written from the game's documented behaviour and its Help. The
-items marked **(check)** are still to be confirmed against SOL.EXE 3.1 and
-its CARDS.DLL with `tools/identify_exe.py` and a disassembly
-(`re/README.md`).
+Status: the resources below are confirmed against Windows 3.1's SOL.EXE
+(from the setup disk's SOL.EX_), and the layout against a screenshot of
+the original running. The items marked **(check)** are still to be
+confirmed, with a disassembly (`re/README.md`) or more screenshots.
 
 ## Resources the port reads
 
-| File | Resource | Use |
-|---|---|---|
-| CARDS.DLL | BITMAP 1-52 | the faces |
-| CARDS.DLL | BITMAP 53 on | the backs (Game > Deck) |
-| CARDS.DLL | BITMAP 67, 68 | the X and the O on an empty stock |
-| SOL.EXE | MENU 1 | the menu bar (Game, Help) **(check the id)** |
-| SOL.EXE | DIALOG "Options" | Game > Options, matched by caption; its controls by their text |
-| SOL.EXE | DIALOG "Select Card Back" | Game > Deck; its owner-drawn buttons are the backs, in order **(check)** |
+All in SOL.EXE (or the card art in CARDS.DLL, when there is one):
+
+| Resource | Use |
+|---|---|
+| BITMAP 1-52 | the faces |
+| BITMAP 53 | the dotted pattern of an empty pile |
+| BITMAP 54-65 | the backs (Game > Deck) |
+| BITMAP 67, 68 | the X and the O on an empty stock |
+| BITMAP 678-684 | the animated backs' frames (`formats.md`) |
+| MENU 1 | the menu bar: Game (Deal, Undo, Deck..., Options..., Exit), Help (Contents, Search for Help on..., How to Use Help, About Solitaire...) |
+| DIALOG 101 "Select Card Back" | Game > Deck: twelve owner-drawn buttons, each numbered with its back's bitmap id |
+| DIALOG 103 "Options" | Game > Options, its controls matched by their text |
+| STRING 100-108 | "Solitaire", "Score: ", "Time: ", "Deal Again?", "Click or press Esc to stop...", "Bonus: ", the credit |
 
 Without SOL.EXE the port uses its own copies of the menus and dialogs
-(`scripts/ui/templates.lua`); without CARDS.DLL it draws plain cards.
+(`scripts/ui/templates.lua`) and draws plain cards.
 
 ## Table
 
 | | |
 |---|---|
-| Table colour | RGB 0, 128, 0 |
+| Table colour | RGB 0, 128, 0 (VGA's dark green) **(check)** |
+| Backs | default 54 **(check)**; 56, 63, 64 and 65 animate now and then on the stock (timing **(check)**) |
 | Card | 71 x 96 |
 | Piles | the stock, the waste and four foundations along the top, seven columns below, evenly spaced: gap = (width - 7 x 71) / 8 |
-| Top row | 5 px below the menu bar **(check)** |
-| Columns | 10 px below the top row **(check)** |
-| Column offsets | 3 px per face-down card, 15 per face-up card, squeezed to fit **(check)** |
+| Top row | 6 px below the menu bar |
+| Columns | 6 px below the top row |
+| Column offsets | 3 px per face-down card; 15 per face-up card, squeezed to fit **(check)** |
+| Empty piles | bitmap 53, its white showing the table |
 | Draw Three | the waste's top three fanned 12 px apart **(check)** |
 | Stacks | the stock and waste get thicker every 10 cards **(check)** |
 

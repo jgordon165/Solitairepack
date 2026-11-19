@@ -5,6 +5,7 @@
 #include "formats/dialog.h"
 #include "formats/dib.h"
 #include "formats/menu.h"
+#include "formats/expand.h"
 #include "formats/ne.h"
 
 #include <cctype>
@@ -241,6 +242,71 @@ static void testMenu() {
     CHECK(threw);
 }
 
+// Install-disk compression: SZDD (literals and a match), KWAJ stored, XOR
+// and LZH (with fixed-length codes, which a test can write by hand), the
+// original names, and truncated files.
+static void testExpand() {
+    const std::string want = "ABCABCABCX";
+    auto str = [](const std::vector<uint8_t>& v) { return std::string(v.begin(), v.end()); };
+
+    Bytes sz = {'S', 'Z', 'D', 'D', 0x88, 0xF0, 0x27, 0x33, 'A', 'E'};
+    app32(sz, 10);
+    // Flags 0b10111: 3 literals, a match (window 0xFF0, where the A went, 6 bytes), a literal.
+    for (int b : {0x17, int('A'), int('B'), int('C'), 0xF0, 0xF3, int('X')}) sz.push_back(static_cast<uint8_t>(b));
+    CHECK(tp::packingOf(sz) == tp::Packing::Szdd);
+    CHECK(str(tp::expand(sz)) == want);
+    CHECK(tp::expandedName(sz, "SOL.EX_") == "SOL.EXE");
+    Bytes szCut(sz.begin(), sz.end() - 3);
+    bool threw = false;
+    try { tp::expand(szCut); } catch (const tp::FormatError&) { threw = true; }
+    CHECK(threw);
+
+    auto kwaj = [&](uint16_t method, const Bytes& body, bool names) {
+        Bytes k = {'K', 'W', 'A', 'J', 0x88, 0xF0, 0x27, 0xD1};
+        app16(k, method);
+        const uint16_t flags = names ? 0x19 : 0x01;
+        app16(k, static_cast<uint16_t>(14 + 4 + (names ? 8 : 0)));
+        app16(k, flags);
+        app32(k, static_cast<uint32_t>(want.size()));
+        if (names) for (char c : std::string("SOL\0EXE\0", 8)) k.push_back(static_cast<uint8_t>(c));
+        k.insert(k.end(), body.begin(), body.end());
+        return k;
+    };
+    const Bytes plain(want.begin(), want.end());
+    CHECK(str(tp::expand(kwaj(0, plain, false))) == want);
+    Bytes x;
+    for (uint8_t c : plain) x.push_back(static_cast<uint8_t>(c ^ 0xFF));
+    CHECK(str(tp::expand(kwaj(1, x, true))) == want);
+    CHECK(tp::expandedName(kwaj(1, x, true), "SOL.EX_") == "SOL.EXE");
+
+    // LZH, all five tables of type 0 (fixed 4/4/5/6/8-bit codes).
+    Bytes bits;
+    int nbits = 0;
+    auto put = [&](unsigned v, int n) {
+        for (int i = n - 1; i >= 0; --i) {
+            if (nbits % 8 == 0) bits.push_back(0);
+            if ((v >> i) & 1) bits.back() |= static_cast<uint8_t>(0x80 >> (nbits % 8));
+            ++nbits;
+        }
+    };
+    for (int t = 0; t < 6; ++t) put(0, 4);
+    put(0, 4); put(2, 5); put('A', 8); put('B', 8); put('C', 8);   // 3 literals
+    put(4, 4); put(0, 6); put(3, 6);                              // match: 6 bytes, 3 back
+    put(0, 4); put(0, 5); put('X', 8);                            // 1 literal
+    const Bytes lzh = kwaj(3, bits, false);
+    CHECK(tp::packingOf(lzh) == tp::Packing::Kwaj);
+    CHECK(str(tp::expand(lzh)) == want);
+    threw = false;
+    try { tp::expand(Bytes(lzh.begin(), lzh.end() - 2)); } catch (const tp::FormatError&) { threw = true; }
+    CHECK(threw);
+    threw = false;
+    try { tp::expand(kwaj(4, plain, false)); } catch (const tp::FormatError&) { threw = true; }
+    CHECK(threw);   // MS-ZIP: not on the Windows 3.1 disks
+
+    // Anything else comes back as it was.
+    CHECK(str(tp::expand(plain)) == want);
+}
+
 static std::filesystem::path findUpper(const std::filesystem::path& dir, const std::string& want) {
     namespace fs = std::filesystem;
     std::error_code ec;
@@ -255,36 +321,45 @@ static std::filesystem::path findUpper(const std::filesystem::path& dir, const s
 static void testRealData() {
     const char* dir = std::getenv("SOLITAIREPACK_DATA");
     if (!dir) return;
-    const auto cardsPath = findUpper(dir, "CARDS.DLL");
-    if (cardsPath.empty()) {
-        std::fprintf(stderr, "[data] CARDS.DLL not found in %s\n", dir);
+    auto findAny = [&](std::initializer_list<const char*> names) {
+        for (const char* n : names) {
+            const auto p = findUpper(dir, n);
+            if (!p.empty()) return p;
+        }
+        return std::filesystem::path{};
+    };
+    const auto solPath = findAny({"SOL.EXE", "SOL.EX_"});
+    const auto cardsPath = findAny({"CARDS.DLL", "CARDS.DL_"});
+    if (solPath.empty() && cardsPath.empty()) {
+        std::fprintf(stderr, "[data] neither SOL.EXE nor SOL.EX_ in %s\n", dir);
         ++failures;
         return;
     }
-    const auto cards = tp::NeFile::load(cardsPath.string());
-    std::printf("[data] %s: module %s, %zu resources\n", cardsPath.string().c_str(), cards.moduleName().c_str(),
-                cards.resources().size());
-    // Every card face is 71 x 96, and so are the backs.
-    for (uint16_t id = 1; id <= 53; ++id) {
-        const auto* r = cards.find(static_cast<uint16_t>(tp::ResType::Bitmap), id);
+    // The card art: CARDS.DLL when there is one, else SOL.EXE (Windows 3.0/3.1).
+    const auto& artPath = cardsPath.empty() ? solPath : cardsPath;
+    const auto art = tp::NeFile::load(artPath.string());
+    std::printf("[data] cards from %s: module %s, %zu resources\n", artPath.string().c_str(),
+                art.moduleName().c_str(), art.resources().size());
+    // Faces 1-52, the empty-pile pattern 53 and the backs 54-65: 71 x 96.
+    for (uint16_t id = 1; id <= 65; ++id) {
+        const auto* r = art.find(static_cast<uint16_t>(tp::ResType::Bitmap), id);
         CHECK(r != nullptr);
         if (!r) continue;
         try {
-            const auto img = tp::decodeDib(cards.read(*r));
+            const auto img = tp::decodeDib(art.read(*r));
             CHECK(img.width == 71 && img.height == 96);
         } catch (const std::exception& ex) {
             std::fprintf(stderr, "[data] bitmap %u: %s\n", id, ex.what());
             ++failures;
         }
     }
-    for (const auto& r : cards.resources()) {
+    for (const auto& r : art.resources()) {
         if (r.typeId != 2) continue;
-        try { tp::decodeDib(cards.read(r)); } catch (const std::exception& ex) {
+        try { tp::decodeDib(art.read(r)); } catch (const std::exception& ex) {
             std::fprintf(stderr, "[data] bitmap %s: %s\n", r.key.str().c_str(), ex.what());
             ++failures;
         }
     }
-    const auto solPath = findUpper(dir, "SOL.EXE");
     if (solPath.empty()) return;
     const auto sol = tp::NeFile::load(solPath.string());
     std::printf("[data] %s: module %s, %zu resources\n", solPath.string().c_str(), sol.moduleName().c_str(),
@@ -301,6 +376,7 @@ static void testRealData() {
     }
     CHECK(menus >= 1);
     CHECK(dialogs >= 2);   // Options, Select Card Back
+    CHECK(sol.string(104).value_or("") == "Deal Again?");
 }
 
 int main() {
@@ -308,6 +384,7 @@ int main() {
     testRejects();
     testDialog();
     testMenu();
+    testExpand();
     testRealData();
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     std::printf("formats: all passed\n");

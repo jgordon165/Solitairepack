@@ -20,8 +20,8 @@ function M.layout(area)
     L.gap = gap
     L.col_x = {}
     for i = 1, 7 do L.col_x[i] = area.x + math.floor(gap + (i - 1) * (W + gap)) end
-    L.top_y = area.y + 5
-    L.tab_y = L.top_y + H + 10
+    L.top_y = area.y + 6
+    L.tab_y = L.top_y + H + 6
     L.stock = { x = L.col_x[1], y = L.top_y }
     L.waste = { x = L.col_x[2], y = L.top_y }
     L.found = {}
@@ -114,8 +114,9 @@ function M.hit(L, g, px, py)
 end
 
 -- Draws the table. `held` = { kind, index, i } leaves those cards out (they
--- are being dragged); back = the chosen back's CARDS.DLL id.
-function M.draw(L, g, back, held)
+-- are being dragged); back = the chosen back's bitmap id; frame = the
+-- back's animation frame showing on the stock (nil: none).
+function M.draw(L, g, back, held, frame)
     local function skip(kind, index, i)
         return held and held.kind == kind and held.index == index and i >= held.i
     end
@@ -128,7 +129,7 @@ function M.draw(L, g, back, held)
         local cs = M.pile_cards(L, g, "stock")
         for k = 1, #cs, M.STACK_EVERY do cards.draw_back(back, cs[k].x, cs[k].y) end
         local t = cs[#cs]
-        cards.draw_back(back, t.x, t.y)
+        cards.draw_back(back, t.x, t.y, frame)
     end
     -- The waste: the top few (one, or the fanned three).
     if #g.waste == 0 then
