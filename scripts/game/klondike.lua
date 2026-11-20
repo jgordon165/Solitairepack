@@ -9,8 +9,11 @@
 --
 -- Columns build down one rank at a time onto a card of the other colour,
 -- as in Klondike, or onto one of the same suit, as in Spider (so with
--- 1 suit, always the same suit). Runs moved together follow the same
--- rule only at the card they're put on.
+-- 1 suit, always the same suit). But, as in Spider, cards only move
+-- together when they're all one suit in order (7D 6D 5D): from a column
+-- of 7D 6D 5S 4D only the 4D can be picked up. Single cards always move.
+-- And, as in Spider, any card (or run) can go into an empty column, not
+-- just a King. The foundations are as always: Aces first.
 --
 -- Foundations build up by suit from the Ace as always; with fewer suits,
 -- several foundations hold the same suit. Its statistics are kept apart
@@ -55,9 +58,22 @@ function M:can_drop(cards, kind, index)
     if not first then return false end
     local p = self.tab[index]
     local t = p[#p]
-    if not t then return first.rank == 13 end
+    if not t then return true end   -- any card into an empty column
     if not t.up or first.rank ~= t.rank - 1 then return false end
     return red(t) ~= red(first) or t.suit == first.suit
+end
+
+-- What can be picked up: one card from the waste or a foundation; from a
+-- column, the top card, or a run from position i that is all one suit,
+-- each card one rank below the last.
+function M:can_pick(kind, index, i)
+    if not win7.can_pick(self, kind, index, i) then return false end
+    if kind ~= "tab" then return true end
+    local p = self.tab[index]
+    for k = i + 1, #p do
+        if p[k].suit ~= p[i].suit or p[k].rank ~= p[k - 1].rank - 1 then return false end
+    end
+    return true
 end
 
 function M.restore(text) return win7.restore(text, M) end

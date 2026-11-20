@@ -424,6 +424,9 @@ function M:hints()
         local p = self.tab[t]
         local first
         for k = 1, #p do if p[k].up then first = k; break end end
+        -- Only a run the mode lets you pick up (the Klondike mode moves
+        -- runs of one suit only): from the first face-up card if it can.
+        if first and not self:can_pick("tab", t, first) then first = nil end
         if first then
             local run = {}
             for k = first, #p do run[#run + 1] = p[k] end
