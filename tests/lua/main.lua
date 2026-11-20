@@ -329,6 +329,29 @@ do
         if m.from.index == 2 and m.to and m.to.index == 1 then hint_ok = true end
     end
     check(hint_ok, "4 suits: hints offer same-suit moves (9C onto 10C)")
+    -- Runs move together only when they're one suit (the screenshot:
+    -- 7D 6D 5S 4D).
+    local run = blank_k(4)
+    run.tab[1] = { C(7, 1), C(6, 1), C(5, 3), C(4, 1) }
+    check(run:can_pick("tab", 1, 4), "the top card alone")
+    check(not run:can_pick("tab", 1, 3) and not run:can_pick("tab", 1, 1), "not 5S 4D, nor the whole mix")
+    run.tab[2] = { C(8, 1), C(7, 1), C(6, 1) }
+    check(run:can_pick("tab", 2, 1) and run:can_pick("tab", 2, 2), "a one-suit run moves")
+    run.tab[3] = { C(9, 3) }
+    check(not run:move("tab", 1, 3, "tab", 3) and #run.tab[1] == 4, "the mixed run can't be moved")
+    run.tab[4] = { C(8, 0) }
+    check(run:move("tab", 2, 2, "tab", 4) and #run.tab[4] == 3, "7D 6D onto 8C")
+    -- Hints don't offer runs that can't be picked up.
+    local hr = blank_k(4)
+    hr.tab[1] = { C(2, 0, false), C(7, 1), C(6, 3) }
+    hr.tab[2] = { C(8, 0) }
+    for _, m in ipairs(hr:hints()) do
+        check(not (m.from.kind == "tab" and m.from.index == 1 and m.from.i == 2), "no hint for the mixed 7D 6S")
+    end
+    local w7r = require("game.win7").new({ draw = 1 })
+    w7r:deal(1)
+    w7r.tab[1] = { C(7, 1), C(6, 3) }
+    check(w7r:can_pick("tab", 1, 1), "Windows 7 mode: alternating runs still move")
     -- The Windows 7 mode keeps the classic rule.
     local w7 = require("game.win7").new({ draw = 1 })
     w7:deal(1)
