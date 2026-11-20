@@ -4,6 +4,7 @@
 #include "formats/dialog.h"
 #include "formats/dib.h"
 #include "formats/menu.h"
+#include "formats/upscale.h"
 #include "input.h"
 
 extern "C" {
@@ -88,6 +89,8 @@ int l_resources(lua_State* L) {
 //     draws with the table as its background, such as the empty-pile pattern)
 //   clear_color: { r, g, b }: pixels of that colour transparent (the X and O
 //     marks are drawn on the original's table green)
+//   smooth: enlarged and smoothed for the screen (formats/upscale.h), drawn
+//     at the same size in canvas pixels
 //   black_frame: the outermost ring of pixels black (the red cards are
 //     monochrome bitmaps drawn in red; the original draws their edge black)
 int l_bitmap(lua_State* L) {
@@ -99,13 +102,14 @@ int l_bitmap(lua_State* L) {
     if (!r) { lua_pushnil(L); lua_pushstring(L, "no such bitmap"); return 2; }
     try {
         auto img = tp::decodeDib(e->read(*r));
-        bool round = false, clearWhite = false, blackFrame = false, clearColour = false;
+        bool round = false, clearWhite = false, blackFrame = false, clearColour = false, smooth = false;
         uint32_t clearRgb = 0;
         if (lua_istable(L, 3)) {
             lua_getfield(L, 3, "round"); round = lua_toboolean(L, -1);
             lua_getfield(L, 3, "clear_white"); clearWhite = lua_toboolean(L, -1);
             lua_getfield(L, 3, "black_frame"); blackFrame = lua_toboolean(L, -1);
-            lua_pop(L, 3);
+            lua_getfield(L, 3, "smooth"); smooth = lua_toboolean(L, -1);
+            lua_pop(L, 4);
             lua_getfield(L, 3, "clear_color");
             if (lua_istable(L, -1)) {
                 uint8_t c[3] = {0, 0, 0};
@@ -135,7 +139,8 @@ int l_bitmap(lua_State* L) {
             for (int y = 0; y < img.height; ++y) { edge(0, y); edge(img.width - 1, y); }
         }
         if (round) roundCorners(img);
-        lua_pushinteger(L, eng(L)->video.addImage(img));
+        const int k = smooth ? eng(L)->video.renderScale() : 1;
+        lua_pushinteger(L, k > 1 ? eng(L)->video.addImage(tp::smoothUpscale(img, k), k) : eng(L)->video.addImage(img));
         lua_pushinteger(L, img.width);
         lua_pushinteger(L, img.height);
         return 3;
@@ -337,6 +342,25 @@ int l_sfx_volume(lua_State* L) {
     return 0;
 }
 
+// sp.free_bitmap(handle): releases a bitmap (reloading the cards smoothed
+// or not).
+int l_free_bitmap(lua_State* L) {
+    eng(L)->video.freeImage(iarg(L, 1));
+    return 0;
+}
+
+// sp.smooth(on): the finished picture scaled to the window smoothly or as
+// sharp pixels. sp.render_scale() -> real pixels per canvas pixel.
+int l_smooth(lua_State* L) {
+    eng(L)->video.setSmooth(lua_toboolean(L, 1));
+    return 0;
+}
+
+int l_render_scale(lua_State* L) {
+    lua_pushinteger(L, eng(L)->video.renderScale());
+    return 1;
+}
+
 int l_key_down(lua_State* L) {
     lua_pushboolean(L, input::isDown(luaL_checkstring(L, 1)));
     return 1;
@@ -388,6 +412,7 @@ void registerLuaApi(lua_State* L, Engine* e) {
         {"quit", l_quit}, {"log", l_log},
         {"platform", l_platform}, {"base_path", l_base_path}, {"draw_flip", l_draw_flip}, {"warp_mouse", l_warp_mouse},
         {"sfx", l_sfx}, {"sfx_volume", l_sfx_volume},
+        {"free_bitmap", l_free_bitmap}, {"smooth", l_smooth}, {"render_scale", l_render_scale},
         {nullptr, nullptr},
     };
     lua_newtable(L);

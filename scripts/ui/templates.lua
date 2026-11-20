@@ -86,7 +86,7 @@ end
 -- The port's own options, added below the original's in the Options
 -- dialog (SOL.EXE's or the stand-in): a copy of t with three more check
 -- boxes and the OK / Cancel row moved down to make room.
-M.EXTRA_OPTIONS = { "&Flip cards automatically", "Blue-&green table", "&Card sounds" }
+M.EXTRA_OPTIONS = { "&Flip cards automatically", "Blue-&green table", "&Card sounds", "S&mooth cards" }
 function M.with_extras(t)
     local out = { caption = t.caption, w = t.w, h = t.h, x = t.x, y = t.y, style = t.style, controls = {} }
     local push_y, left = nil, nil

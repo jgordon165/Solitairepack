@@ -6,6 +6,7 @@
 #include "formats/dib.h"
 #include "formats/menu.h"
 #include "formats/expand.h"
+#include "formats/upscale.h"
 #include "formats/ne.h"
 
 #include <cctype>
@@ -307,6 +308,46 @@ static void testExpand() {
     CHECK(str(tp::expand(plain)) == want);
 }
 
+// The card smoothing: Scale2x rounds a staircase, the smoothed image is
+// the right size, a flat colour stays exact, transparent corners stay
+// transparent, and edges get in-between (anti-aliased) shades.
+static void testUpscale() {
+    const uint32_t W = tp::packRGBA(255, 255, 255), K = tp::packRGBA(0, 0, 0);
+    tp::Image s{2, 2, {K, W, W, W}};   // black top-left, a diagonal edge against white
+    const auto d = tp::scale2x(s);
+    CHECK(d.width == 4 && d.height == 4);
+    CHECK(d.at(0, 0) == K && d.at(1, 1) == W && d.at(3, 3) == W);   // the corner pixel rounds off
+    // A staircase: its steps come out half as coarse.
+    tp::Image st{3, 3, {K, W, W,
+                        K, K, W,
+                        K, K, K}};
+    const auto st2 = tp::scale2x(st);
+    CHECK(st2.at(3, 0) == W && st2.at(2, 1) == K);   // the diagonal is stepped half as coarsely
+    tp::Image flat{5, 4, std::vector<uint32_t>(20, tp::packRGBA(0, 112, 104))};
+    for (int k : {1, 2, 3, 4}) {
+        const auto u = tp::smoothUpscale(flat, k);
+        CHECK(u.width == 5 * k && u.height == 4 * k);
+        bool same = true;
+        for (uint32_t p : u.rgba) same = same && p == tp::packRGBA(0, 112, 104);
+        CHECK(same);
+    }
+    tp::Image card{8, 8, std::vector<uint32_t>(64, W)};
+    card.rgba[0] = 0;                 // a transparent corner
+    for (int y = 0; y < 8; ++y) card.rgba[static_cast<size_t>(y) * 8 + 4] = K;   // a black stripe
+    const auto u = tp::smoothUpscale(card, 2);
+    CHECK((u.at(0, 0) >> 24) == 0);   // still clear
+    CHECK(u.at(15, 15) == W && u.at(8, 8) == K);
+    bool grey = false;
+    tp::Image diag{8, 8, std::vector<uint32_t>(64, W)};
+    for (int y = 0; y < 8; ++y) for (int x = 0; x <= y; ++x) diag.rgba[static_cast<size_t>(y) * 8 + x] = K;
+    const auto ud = tp::smoothUpscale(diag, 2);
+    for (uint32_t p : ud.rgba) {
+        const int r = p & 0xFF;
+        if (r > 10 && r < 245) grey = true;
+    }
+    CHECK(grey);                      // the diagonal edge is anti-aliased
+}
+
 static std::filesystem::path findUpper(const std::filesystem::path& dir, const std::string& want) {
     namespace fs = std::filesystem;
     std::error_code ec;
@@ -385,6 +426,7 @@ int main() {
     testDialog();
     testMenu();
     testExpand();
+    testUpscale();
     testRealData();
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     std::printf("formats: all passed\n");

@@ -361,6 +361,16 @@ if game and game.current then
         game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
         game.keypressed("c", false); game.keypressed("g", false); game.keypressed("return", false)
         check(cards.TABLE[2] == 112, "the blue-green table back")
+        -- Smooth cards off and on again (the cards are reloaded each time).
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("m", false); game.keypressed("return", false)
+        check((sp.storage_read("options") or ""):find("smooth=0", 1, true), "smooth cards off, saved")
+        check(cards.smooth == false, "the cards reloaded unsmoothed")
+        game.draw()
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("m", false); game.keypressed("return", false)
+        check(cards.smooth == true, "and smoothed again")
+        game.draw()
     end)
     sp.sfx = real_sfx
     check(ok, "options and sounds: " .. tostring(err))

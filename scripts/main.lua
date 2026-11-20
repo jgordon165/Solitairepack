@@ -145,7 +145,7 @@ local option_keys = {
     ["outline dragging"] = { "outline", true }, ["keep score"] = { "keep_score", true },
     -- The port's own, from the later Windows card games (templates.with_extras).
     ["flip cards automatically"] = { "auto_flip", true }, ["blue-green table"] = { "blue_green", true },
-    ["card sounds"] = { "sound", true },
+    ["card sounds"] = { "sound", true }, ["smooth cards"] = { "smooth", true },
 }
 
 local function open_options()
@@ -182,6 +182,11 @@ local function open_options()
             if S.scoring ~= "vegas" then S.keep_score = false end
             cards.set_table(S.blue_green and "spider" or "classic")
             g.auto_flip = S.auto_flip
+            if S.smooth ~= cards.smooth then
+                cards.smooth = S.smooth
+                cards.load()
+            end
+            sp.smooth(S.smooth)
             relayout()
             save()
             -- Changing how it's played or scored starts a new game, as in the original.
@@ -309,6 +314,8 @@ function game.load()
     sp.title("Solitaire")
     S = settings.load()
     cards.set_table(S.blue_green and "spider" or "classic")
+    cards.smooth = S.smooth
+    sp.smooth(S.smooth)
     cards.load()
     -- A back that isn't in this file (or the empty-pile pattern, 53, which an
     -- earlier version offered as a back) falls back to the first.

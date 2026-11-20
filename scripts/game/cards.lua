@@ -41,7 +41,23 @@ end
 
 function M.face_id(card) return card.suit * 13 + card.rank end
 
+-- Smoothed for the screen (sp.bitmap's smooth: Scale2x, then averaged
+-- down to the real pixels the canvas is drawn at), or the original pixels.
+M.smooth = true
+
+-- Every handle loaded, to release when the cards are loaded again.
+local loaded = {}
+local function bitmap(id, opts)
+    opts = opts or {}
+    opts.smooth = M.smooth
+    local h, w, ht = sp.bitmap(id, "cards", opts)
+    if h then loaded[#loaded + 1] = h end
+    return h, w, ht
+end
+
 function M.load()
+    for _, h in ipairs(loaded) do sp.free_bitmap(h) end
+    loaded = {}
     faces, backs, marks, frames = {}, {}, {}, {}
     empty = nil
     M.have_art = false
@@ -52,28 +68,28 @@ function M.load()
             local id = suit * 13 + rank
             -- Diamonds and hearts: red, with a black edge.
             local red = suit == 1 or suit == 2
-            local h, w, ht = sp.bitmap(id, "cards", { round = true, black_frame = red })
+            local h, w, ht = bitmap(id, { round = true, black_frame = red })
             if h then faces[id] = h; n = n + 1; M.W, M.H = w, ht end
         end
     end
     M.backs = {}
     for id = M.FIRST_BACK, M.LAST_BACK do
-        local h = sp.bitmap(id, "cards", true)
+        local h = bitmap(id, { round = true })
         if h then backs[id] = h; M.backs[#M.backs + 1] = id end
     end
     for _, id in ipairs({ M.X_MARK, M.O_MARK }) do
         -- Drawn on the original's green: that green is left clear, so they
         -- sit on whichever table colour is chosen.
-        local h = sp.bitmap(id, "cards", { round = true, clear_color = { 0, 128, 0 } })
+        local h = bitmap(id, { round = true, clear_color = { 0, 128, 0 } })
         if h then marks[id] = h end
     end
     -- A monochrome bitmap the original draws with the table green as its
     -- background: its white is left clear.
-    empty = sp.bitmap(M.EMPTY, "cards", { round = true, clear_white = true })
+    empty = bitmap(M.EMPTY, { round = true, clear_white = true })
     for _, a in pairs(M.ANIMATIONS) do
         for _, id in ipairs(a.frames) do
             if not frames[id] then
-                local h, w, ht = sp.bitmap(id, "cards")
+                local h, w, ht = bitmap(id)
                 if h then frames[id] = { h = h, w = w, ht = ht } end
             end
         end

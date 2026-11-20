@@ -42,7 +42,19 @@ public:
     static int textWidth(const std::string& s, int scale, Font font = Font::Small);
 
     // Uploads a decoded bitmap; returns a handle for draw(), or -1.
-    int addImage(const tp::Image& img);
+    // texScale: the image is that many times bigger than it's drawn (a
+    // smoothed card at renderScale()); draw() takes rectangles in canvas
+    // pixels either way.
+    int addImage(const tp::Image& img, int texScale = 1);
+    void freeImage(int handle);
+
+    // The canvas is drawn at this many real pixels per canvas pixel (the
+    // zoom times the display's pixel density, rounded up; at most 4), so
+    // smoothed cards keep their detail.
+    int renderScale() const { return rs_; }
+    // How the finished canvas is scaled to the window: smoothly (linear) or
+    // as sharp pixels (nearest).
+    void setSmooth(bool on) { smooth_ = on; }
     void draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh, bool flip = false);
 
     void compose();   // canvas -> window, before screenshot() and present()
@@ -61,6 +73,9 @@ private:
     SDL_Window* win_ = nullptr;
     SDL_Renderer* ren_ = nullptr;
     std::vector<SDL_Texture*> tex_;
+    std::vector<int> texScale_;
+    int rs_ = 1;
+    bool smooth_ = false;
     SDL_Texture* canvas_ = nullptr;  // everything is drawn here at canvas size, then scaled to the window
     int cw_ = 0, ch_ = 0;
     double scale_ = 1.0;

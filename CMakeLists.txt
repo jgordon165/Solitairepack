@@ -61,7 +61,8 @@ add_library(solitairepack_formats STATIC
     src/formats/dib.cpp
     src/formats/dialog.cpp
     src/formats/menu.cpp
-    src/formats/expand.cpp)
+    src/formats/expand.cpp
+    src/formats/upscale.cpp)
 target_include_directories(solitairepack_formats PUBLIC src)
 solitairepack_warnings(solitairepack_formats)
 
