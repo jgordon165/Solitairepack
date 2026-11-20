@@ -329,6 +329,24 @@ do
         if m.from.index == 2 and m.to and m.to.index == 1 then hint_ok = true end
     end
     check(hint_ok, "4 suits: hints offer same-suit moves (9C onto 10C)")
+    -- A run keeps to one way (the screenshot: 7H 6H, then 5S, then 4H).
+    local mix = blank_k(2)
+    mix.tab[1] = { C(7, 2), C(6, 2) }                 -- by suit
+    check(not mix:can_drop({ C(5, 3) }, "tab", 1), "a suit run can't turn alternating (5S on 7H 6H)")
+    check(mix:can_drop({ C(5, 2) }, "tab", 1), "it carries on by suit (5H)")
+    mix.tab[2] = { C(7, 2), C(6, 3) }                 -- alternating
+    check(not mix:can_drop({ C(5, 3) }, "tab", 2), "an alternating run can't turn to suit (5S on 7H 6S)")
+    check(mix:can_drop({ C(5, 2) }, "tab", 2), "it carries on alternating (5H)")
+    mix.tab[3] = { C(6, 2) }                          -- one card: either way
+    check(mix:can_drop({ C(5, 2) }, "tab", 3) and mix:can_drop({ C(5, 3) }, "tab", 3), "a single card takes either")
+    check(not mix:can_drop({ C(5, 3), C(4, 2) }, "tab", 1), "a moved alternating run can't join a suit run")
+    check(mix:can_drop({ C(5, 2), C(4, 2) }, "tab", 1), "a moved suit run joins a suit run")
+    check(not mix:can_drop({ C(5, 2), C(4, 2) }, "tab", 2), "a moved suit run can't join an alternating run")
+    mix.tab[4] = { C(8, 3, false), C(6, 2) }          -- face down under: free
+    check(mix:can_drop({ C(5, 3) }, "tab", 4), "a card over a face-down one takes either")
+    local one1 = blank_k(1)
+    one1.tab[1] = { C(7, 3), C(6, 3) }
+    check(one1:can_drop({ C(5, 3) }, "tab", 1), "1 suit: always by suit")
     -- The Windows 7 mode keeps the classic rule.
     local w7 = require("game.win7").new({ draw = 1 })
     w7:deal(1)

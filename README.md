@@ -149,7 +149,10 @@ suits**, as the later Windows Spider offers (`scripts/game/klondike.lua`):
 With any number of suits, a card goes on a column one rank higher either
 of the other colour (as in Klondike) or of the same suit (as in Spider):
 the 9 of spades on the 10 of hearts or on the 10 of spades, but not on the
-10 of clubs.
+10 of clubs. A run keeps to the way it started: once it goes by suit
+(7♥ 6♥) it continues by suit (5♥, not 5♠), and once it alternates
+(7♥ 6♠) it continues alternating. A run you move must go the same way
+as the cards it joins.
 
 Foundations build up by suit from the Ace, so with fewer suits several
 hold the same one. Statistics are kept for each number of suits

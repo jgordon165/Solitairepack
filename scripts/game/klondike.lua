@@ -9,8 +9,11 @@
 --
 -- Columns build down one rank at a time onto a card of the other colour,
 -- as in Klondike, or onto one of the same suit, as in Spider (so with
--- 1 suit, always the same suit). Runs moved together follow the same
--- rule only at the card they're put on.
+-- 1 suit, always the same suit). But a run keeps to one way: once a
+-- column's run goes by suit (7H 6H) it carries on by suit (5H, not 5S),
+-- and once it alternates (7H 6S) it carries on alternating (5H or 5D, not
+-- 5S). A run moved onto a column has to go the same way as the cards it
+-- joins.
 --
 -- Foundations build up by suit from the Ace as always; with fewer suits,
 -- several foundations hold the same suit. Its statistics are kept apart
@@ -47,8 +50,18 @@ function M:new_deck()
     return deck
 end
 
--- Builds down onto the other colour or the same suit. Everything else as
--- in the Windows 7 mode.
+-- How card b sits on card a, one rank lower: "suit" (the same suit),
+-- "alt" (the other colour), or nil (not a legal pair: the other suit of
+-- the same colour, or not one rank lower).
+function M.pair(a, b)
+    if not (a and b and a.up and b.up) or b.rank ~= a.rank - 1 then return nil end
+    if a.suit == b.suit then return "suit" end
+    if red(a) ~= red(b) then return "alt" end
+    return nil
+end
+
+-- Builds down onto the other colour or the same suit, keeping each run to
+-- one way. Everything else as in the Windows 7 mode.
 function M:can_drop(cards, kind, index)
     if kind ~= "tab" then return win7.can_drop(self, cards, kind, index) end
     local first = cards[1]
@@ -56,8 +69,16 @@ function M:can_drop(cards, kind, index)
     local p = self.tab[index]
     local t = p[#p]
     if not t then return first.rank == 13 end
-    if not t.up or first.rank ~= t.rank - 1 then return false end
-    return red(t) ~= red(first) or t.suit == first.suit
+    local join = M.pair(t, first)
+    if not join then return false end
+    -- The way the column's run already goes (the card under t), and the
+    -- way the moved run goes (its first two cards): both must match.
+    -- With 1 suit both are always "suit".
+    local below = M.pair(p[#p - 1], t)
+    if below and below ~= join then return false end
+    local within = M.pair(cards[1], cards[2])
+    if within and within ~= join then return false end
+    return true
 end
 
 function M.restore(text) return win7.restore(text, M) end
