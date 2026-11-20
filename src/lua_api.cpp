@@ -5,6 +5,7 @@
 #include "formats/dib.h"
 #include "formats/menu.h"
 #include "formats/upscale.h"
+#include "formats/procedural.h"
 #include "input.h"
 
 extern "C" {
@@ -13,6 +14,7 @@ extern "C" {
 }
 
 #include <SDL.h>
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <cstdio>
@@ -361,6 +363,46 @@ int l_render_scale(lua_State* L) {
     return 1;
 }
 
+// sp.texture("satin", { size = 512, seed = 1 }) -> handle, size
+// sp.texture("shadow", { w, h, blur, alpha, radius }) -> handle, width,
+//   height, margin (all in canvas pixels; the image is the card plus the
+//   margin all round)
+// The port's own textures (formats/procedural.h), made at renderScale() so
+// they're drawn 1:1.
+int l_texture(lua_State* L) {
+    const std::string kind = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    auto num = [&](const char* k, double def) {
+        lua_getfield(L, 2, k);
+        const double v = luaL_optnumber(L, -1, def);
+        lua_pop(L, 1);
+        return v;
+    };
+    Video& v = eng(L)->video;
+    const int k = v.renderScale();
+    if (kind == "satin") {
+        const int size = std::clamp(static_cast<int>(num("size", 512)), 16, 1024);
+        const int h = v.addImage(tp::satinTexture(size, k, static_cast<uint32_t>(num("seed", 1))), k);
+        lua_pushinteger(L, h);
+        lua_pushinteger(L, size);
+        return 2;
+    }
+    if (kind == "shadow") {
+        const int w = std::clamp(static_cast<int>(num("w", 71)), 1, 2048);
+        const int ht = std::clamp(static_cast<int>(num("h", 96)), 1, 2048);
+        const double blur = std::clamp(num("blur", 3), 0.5, 32.0);
+        const int m = tp::shadowMargin(blur);
+        const int h = v.addImage(tp::shadowTexture(w, ht, blur, std::clamp(num("alpha", 0.4), 0.0, 1.0),
+                                                   static_cast<int>(num("radius", 3)), k), k);
+        lua_pushinteger(L, h);
+        lua_pushinteger(L, w + 2 * m);
+        lua_pushinteger(L, ht + 2 * m);
+        lua_pushinteger(L, m);
+        return 4;
+    }
+    return luaL_error(L, "unknown texture '%s'", kind.c_str());
+}
+
 int l_key_down(lua_State* L) {
     lua_pushboolean(L, input::isDown(luaL_checkstring(L, 1)));
     return 1;
@@ -412,7 +454,7 @@ void registerLuaApi(lua_State* L, Engine* e) {
         {"quit", l_quit}, {"log", l_log},
         {"platform", l_platform}, {"base_path", l_base_path}, {"draw_flip", l_draw_flip}, {"warp_mouse", l_warp_mouse},
         {"sfx", l_sfx}, {"sfx_volume", l_sfx_volume},
-        {"free_bitmap", l_free_bitmap}, {"smooth", l_smooth}, {"render_scale", l_render_scale},
+        {"free_bitmap", l_free_bitmap}, {"texture", l_texture}, {"smooth", l_smooth}, {"render_scale", l_render_scale},
         {nullptr, nullptr},
     };
     lua_newtable(L);

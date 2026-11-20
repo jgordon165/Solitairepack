@@ -109,5 +109,10 @@ taken from any Windows game). Smooth cards (`src/formats/upscale.cpp`):
 each card bitmap is enlarged 8x with three passes of Scale2x and
 area-averaged down to the real pixels per canvas pixel (the zoom times the
 display's pixel density, rounded up, at most 4); the canvas is drawn at
-that resolution and filtered to the window. The window can also be resized, with the
+that resolution and filtered to the window. Satin table and Card shadows
+(`src/formats/procedural.cpp`, `scripts/game/decor.lua`): a tileable
+512-pixel grainy satin drawn over the table colour before anything else,
+and blurred rounded-rectangle shadows stretched in nine pieces under each
+pile (6, 8 px down-right, blur 6: at most 25 px past the cards), between
+overlapping cards and under dragged cards. The window can also be resized, with the
 table growing to fill it (see Table).

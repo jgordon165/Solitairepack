@@ -47,6 +47,7 @@ function M:launch()
     -- The foundation now shows the card underneath (or its empty place).
     if nxt.below then cards.draw_face(nxt.below, nxt.x, nxt.y) else
         sp.fill(nxt.x, nxt.y, cards.W, cards.H, cards.TABLE[1], cards.TABLE[2], cards.TABLE[3])
+        require("game.decor").draw_satin(nxt.x, nxt.y, cards.W, cards.H)
         cards.draw_empty(nxt.x, nxt.y)
     end
     self.cur = { card = nxt.card, x = nxt.x, y = nxt.y, vx = vx, vy = -(self.rand(4) * 2) }
@@ -74,7 +75,10 @@ function M:update_draw(dt)
     self.acc = self.acc + dt * M.STEPS_PER_SECOND
     while self.acc >= 1 and not self.done do
         self.acc = self.acc - 1
-        if not self.cur then self:launch() end
+        if not self.cur then
+            self:launch()
+            sp.clip(self.area.x, self.area.y, self.area.w, self.area.h)   -- (the satin lifts it)
+        end
         if self.cur then
             local gone = self:step()
             cards.draw_face(self.cur.card, math.floor(self.cur.x), math.floor(self.cur.y))

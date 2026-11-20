@@ -3,6 +3,7 @@
 -- the seven columns below, spread evenly across the window (docs/original.md).
 
 local cards = require("game.cards")
+local decor = require("game.decor")
 
 local M = {}
 
@@ -123,9 +124,35 @@ end
 -- Draws the table. `held` = { kind, index, i } leaves those cards out (they
 -- are being dragged); back = the chosen back's bitmap id; frame = the
 -- back's animation frame showing on the stock (nil: none).
+-- The rectangle a pile's cards cover (nil when it's empty), for its shadow.
+-- skip(kind, index, i) leaves out cards being dragged.
+local function pile_rect(L, g, kind, index, skip)
+    local cs = M.pile_cards(L, g, kind, index)
+    local x0, y0, x1, y1
+    for k, r in ipairs(cs) do
+        if not skip(kind, index, k) then
+            x0 = math.min(x0 or r.x, r.x)
+            y0 = math.min(y0 or r.y, r.y)
+            x1 = math.max(x1 or 0, r.x + cards.W)
+            y1 = math.max(y1 or 0, r.y + cards.H)
+        end
+    end
+    if not x0 then return nil end
+    return x0, y0, x1 - x0, y1 - y0
+end
+
 function M.draw(L, g, back, held, frame)
     local function skip(kind, index, i)
         return held and held.kind == kind and held.index == index and i >= held.i
+    end
+    -- First every pile's shadow on the table, so none falls on another
+    -- pile's cards.
+    local piles = { { "stock" }, { "waste" } }
+    for f = 1, 4 do piles[#piles + 1] = { "found", f } end
+    for t = 1, 7 do piles[#piles + 1] = { "tab", t } end
+    for _, pl in ipairs(piles) do
+        local x, y, w, h = pile_rect(L, g, pl[1], pl[2], skip)
+        if x then decor.shadow("pile", x, y, w, h) end
     end
     -- The stock: its cards, or the mark that says whether it turns over.
     if #g.stock == 0 then
@@ -149,7 +176,11 @@ function M.draw(L, g, back, held, frame)
             if k < from and not skip("waste", nil, k) then cards.draw(cs[k].card, cs[k].x, cs[k].y, back) end
         end
         for k = from, #cs do
-            if not skip("waste", nil, k) then cards.draw(cs[k].card, cs[k].x, cs[k].y, back) end
+            if not skip("waste", nil, k) then
+                -- A fanned card's halo on the one under it.
+                if k > from then decor.shadow("overlap", cs[k].x, cs[k].y, cards.W, cards.H) end
+                cards.draw(cs[k].card, cs[k].x, cs[k].y, back)
+            end
         end
     end
     for f = 1, 4 do
@@ -164,7 +195,11 @@ function M.draw(L, g, back, held, frame)
         local cs = M.pile_cards(L, g, "tab", t)
         if #cs == 0 or skip("tab", t, 1) then cards.draw_empty(L.col_x[t], L.tab_y) end
         for k, r in ipairs(cs) do
-            if not skip("tab", t, k) then cards.draw(r.card, r.x, r.y, back) end
+            if not skip("tab", t, k) then
+                -- Each card's halo on the one it overlaps.
+                if k > 1 then decor.shadow("overlap", r.x, r.y, cards.W, cards.H) end
+                cards.draw(r.card, r.x, r.y, back)
+            end
         end
     end
 end

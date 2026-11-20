@@ -7,6 +7,7 @@
 #include "formats/menu.h"
 #include "formats/expand.h"
 #include "formats/upscale.h"
+#include "formats/procedural.h"
 #include "formats/ne.h"
 
 #include <cctype>
@@ -348,6 +349,42 @@ static void testUpscale() {
     CHECK(grey);                      // the diagonal edge is anti-aliased
 }
 
+// The satin: the right size at each scale, faint (it only tints the
+// table), and tileable (no seam where tiles meet); the shadow: margins as
+// promised, solid in the middle, clear at the edge, soft in between.
+static void testProcedural() {
+    for (int k : {1, 2}) {
+        const auto s = tp::satinTexture(64, k, 7);
+        CHECK(s.width == 64 * k && s.height == 64 * k);
+        int maxA = 0;
+        for (uint32_t p : s.rgba) maxA = std::max(maxA, static_cast<int>(p >> 24));
+        CHECK(maxA > 4 && maxA < 90);
+    }
+    // Tileable: the step across the wrap (last column to first) is no
+    // bigger than steps inside the tile.
+    const auto s = tp::satinTexture(128, 1, 3);
+    auto lum = [&](int x, int y) {
+        const uint32_t p = s.at(x, y);
+        const int a = static_cast<int>(p >> 24);
+        return (p & 0xFF) ? a : -a;   // white lightens, black darkens
+    };
+    double wrap = 0, inside = 0;
+    for (int y = 0; y < 128; ++y) {
+        wrap += std::abs(lum(127, y) - lum(0, y));
+        inside += std::abs(lum(63, y) - lum(64, y));
+    }
+    CHECK(wrap < inside * 2.0 + 128);
+
+    const int m = tp::shadowMargin(6);
+    const auto sh = tp::shadowTexture(71, 96, 6, 0.5, 3, 1);
+    CHECK(sh.width == 71 + 2 * m && sh.height == 96 + 2 * m);
+    const int mid = static_cast<int>(sh.at(sh.width / 2, sh.height / 2) >> 24);
+    CHECK(mid > 120 && mid <= 128);              // alpha 0.5 under the card
+    CHECK((sh.at(0, 0) >> 24) == 0);             // clear at the corner of the margin
+    const int edge = static_cast<int>(sh.at(m, sh.height / 2) >> 24);
+    CHECK(edge > 20 && edge < mid);              // soft at the card's edge
+}
+
 static std::filesystem::path findUpper(const std::filesystem::path& dir, const std::string& want) {
     namespace fs = std::filesystem;
     std::error_code ec;
@@ -427,6 +464,7 @@ int main() {
     testMenu();
     testExpand();
     testUpscale();
+    testProcedural();
     testRealData();
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     std::printf("formats: all passed\n");

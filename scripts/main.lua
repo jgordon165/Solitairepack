@@ -11,6 +11,7 @@ local w31 = require("ui.win31")
 local Dialog = require("ui.dialog")
 local Bar = require("ui.menubar")
 local templates = require("ui.templates")
+local decor = require("game.decor")
 
 game = {}
 
@@ -146,6 +147,7 @@ local option_keys = {
     -- The port's own, from the later Windows card games (templates.with_extras).
     ["flip cards automatically"] = { "auto_flip", true }, ["blue-green table"] = { "blue_green", true },
     ["card sounds"] = { "sound", true }, ["smooth cards"] = { "smooth", true },
+    ["satin table"] = { "satin", true }, ["card shadows"] = { "shadows", true },
 }
 
 local function open_options()
@@ -187,6 +189,7 @@ local function open_options()
                 cards.load()
             end
             sp.smooth(S.smooth)
+            decor.satin, decor.shadows = S.satin, S.shadows
             relayout()
             save()
             -- Changing how it's played or scored starts a new game, as in the original.
@@ -317,6 +320,8 @@ function game.load()
     cards.smooth = S.smooth
     sp.smooth(S.smooth)
     cards.load()
+    decor.satin, decor.shadows = S.satin, S.shadows
+    decor.load()
     -- A back that isn't in this file (or the empty-pile pattern, 53, which an
     -- earlier version offered as a back) falls back to the first.
     local ok = false
@@ -624,8 +629,12 @@ local function draw_dragged()
         cards.draw_outline(drag.x, drag.y, cards.W, last.dy + cards.H)
         return
     end
+    -- Lifted: a deeper shadow under the run, a halo between its cards.
+    local last = drag.rects[#drag.rects]
+    decor.shadow("lifted", drag.x, drag.y, cards.W, last.dy + cards.H)
     for k, c in ipairs(drag.run) do
         local r = drag.rects[k]
+        if k > 1 then decor.shadow("overlap", drag.x + r.dx, drag.y + r.dy, cards.W, cards.H) end
         cards.draw_face(c, drag.x + r.dx, drag.y + r.dy)
     end
 end
@@ -662,6 +671,7 @@ function game.draw()
         return
     end
     sp.clear(cards.TABLE[1], cards.TABLE[2], cards.TABLE[3])
+    decor.draw_satin(L.area.x, L.area.y, L.area.w, L.area.h)
     local held = drag and drag.moved and not S.outline and drag or nil
     if kb and kb.held and not drag then held = nil end
     table_.draw(L, g, S.back, held, anim.frame)
