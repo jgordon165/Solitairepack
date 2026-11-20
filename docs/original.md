@@ -105,5 +105,9 @@ SOL.EXE's own shuffle (it seeds from the clock) is still to be read.
 From the later Windows card games, off the original's path (Options, below
 the original's): Flip cards automatically, the Blue-green table (RGB 0,
 112, 104) and Card sounds (synthesized in `src/audio.cpp`: no samples are
-taken from any Windows game). The window can also be resized, with the
+taken from any Windows game). Smooth cards (`src/formats/upscale.cpp`):
+each card bitmap is enlarged 8x with three passes of Scale2x and
+area-averaged down to the real pixels per canvas pixel (the zoom times the
+display's pixel density, rounded up, at most 4); the canvas is drawn at
+that resolution and filtered to the window. The window can also be resized, with the
 table growing to fill it (see Table).

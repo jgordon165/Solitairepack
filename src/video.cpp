@@ -51,6 +51,13 @@ bool Video::open(const std::string& title, int canvasW, int canvasH, double scal
     if (!ren_) { std::fprintf(stderr, "renderer: %s\n", SDL_GetError()); return false; }
     SDL_SetRenderDrawBlendMode(ren_, SDL_BLENDMODE_BLEND);
     SDL_SetWindowMinimumSize(win_, static_cast<int>(minW * scale), static_cast<int>(minH * scale));
+    {
+        int ww = 0, wh = 0, ow = 0, oh = 0;
+        SDL_GetWindowSize(win_, &ww, &wh);
+        SDL_GetRendererOutputSize(ren_, &ow, &oh);
+        const double density = ww > 0 ? double(ow) / ww : 1.0;
+        rs_ = std::clamp(static_cast<int>(std::ceil(scale * density - 1e-6)), 1, 4);
+    }
     setCanvas(canvasW, canvasH);
     fitCanvas();
     return true;
@@ -80,9 +87,12 @@ void Video::setCanvas(int w, int h) {
     cw_ = w;
     ch_ = h;
     if (canvas_) SDL_DestroyTexture(canvas_);
-    canvas_ = SDL_CreateTexture(ren_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    canvas_ = SDL_CreateTexture(ren_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w * rs_, h * rs_);
     if (!canvas_) std::fprintf(stderr, "canvas: %s\n", SDL_GetError());
     SDL_SetRenderTarget(ren_, canvas_);
+    // Drawing is in canvas pixels; the target is renderScale() times bigger.
+    // (SDL resets the scale whenever the target changes.)
+    SDL_RenderSetScale(ren_, static_cast<float>(rs_), static_cast<float>(rs_));
 }
 
 void Video::clear(uint8_t r, uint8_t g, uint8_t b) {
@@ -144,18 +154,26 @@ void Video::text(int x, int y, const std::string& s, int scale, uint8_t r, uint8
     }
 }
 
-int Video::addImage(const tp::Image& img) {
+int Video::addImage(const tp::Image& img, int texScale) {
     SDL_Texture* t = SDL_CreateTexture(ren_, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img.width, img.height);
     if (!t) { std::fprintf(stderr, "texture: %s\n", SDL_GetError()); return -1; }
     SDL_UpdateTexture(t, nullptr, img.rgba.data(), img.width * 4);
     SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);   // rounded card corners are transparent
     tex_.push_back(t);
+    texScale_.push_back(std::max(1, texScale));
     return static_cast<int>(tex_.size()) - 1;
 }
 
+void Video::freeImage(int handle) {
+    if (handle < 0 || handle >= static_cast<int>(tex_.size()) || !tex_[handle]) return;
+    SDL_DestroyTexture(tex_[handle]);
+    tex_[handle] = nullptr;
+}
+
 void Video::draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh, bool flip) {
-    if (handle < 0 || handle >= static_cast<int>(tex_.size())) return;
-    const SDL_Rect src{sx, sy, sw, sh}, dst{dx, dy, dw, dh};
+    if (handle < 0 || handle >= static_cast<int>(tex_.size()) || !tex_[handle]) return;
+    const int k = texScale_[handle];
+    const SDL_Rect src{sx * k, sy * k, sw * k, sh * k}, dst{dx, dy, dw, dh};
     SDL_RenderCopyEx(ren_, tex_[handle], &src, &dst, 0.0, nullptr, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 }
 
@@ -174,6 +192,10 @@ void Video::compose() {
     const double s = std::min(double(ow) / cw_, double(oh) / ch_);
     const int dw = static_cast<int>(cw_ * s + 0.5), dh = static_cast<int>(ch_ * s + 0.5);
     const SDL_Rect dst{(ow - dw) / 2, (oh - dh) / 2, dw, dh};
+    // Smooth: the (bigger) canvas filtered down to the window, so a zoom
+    // like 1.5x shows even, anti-aliased edges instead of uneven pixels.
+    SDL_SetTextureScaleMode(canvas_, smooth_ && (dw != cw_ * rs_ || dh != ch_ * rs_) ? SDL_ScaleModeLinear
+                                                                                     : SDL_ScaleModeNearest);
     SDL_RenderCopy(ren_, canvas_, nullptr, &dst);
 }
 
@@ -218,6 +240,7 @@ void Video::warpMouse(int cx, int cy) {
 void Video::present() {
     SDL_RenderPresent(ren_);
     SDL_SetRenderTarget(ren_, canvas_);
+    SDL_RenderSetScale(ren_, static_cast<float>(rs_), static_cast<float>(rs_));
     if (clipSaved_.w > 0 && clipSaved_.h > 0) SDL_RenderSetClipRect(ren_, &clipSaved_);
 }
 

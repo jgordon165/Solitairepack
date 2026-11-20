@@ -15,6 +15,7 @@ M.defaults = {
     auto_flip = true,         -- turn uncovered cards up by themselves (later Windows games)
     blue_green = true,        -- the blue-green table of the later games, not 3.1's green
     sound = true,             -- the card sounds
+    smooth = true,            -- the cards smoothed for the screen, not the original pixels
     bank = 0,                 -- the carried-over Vegas score
 }
 

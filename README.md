@@ -91,13 +91,18 @@ status bar's text come from its own resources.
 
 **Options.** Draw One or Draw Three; Standard, Vegas or no scoring; Timed
 game; Status bar; Outline dragging; Keep score (Vegas). Below the
-original's options are three from the later Windows card games (Spider
-Solitaire), all on to start with:
+original's options are the port's own, all on to start with, three of them
+from the later Windows card games (Spider Solitaire):
 
 - **Flip cards automatically:** when a move uncovers a face-down card in a
   column, it turns up by itself (scored as if clicked; one Undo takes back
   both).
 - **Blue-green table:** the later games' blue-green instead of 3.1's green.
+- **Smooth cards:** the cards are enlarged with Scale2x (which rounds
+  off the pixel steps of curves and diagonals) and anti-aliased for the
+  screen, and the zoomed picture is filtered to the window, so at zooms
+  like 1.5x the pips and letters come out even and smooth. Turn it off for
+  the original's sharp pixels.
 - **Card sounds:** a click when a card is laid down, a swish when one turns
   over, a riffle from the stock. They're the port's own, synthesized when
   it starts; the original Solitaire is silent.
