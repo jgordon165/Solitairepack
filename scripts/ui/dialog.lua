@@ -62,9 +62,7 @@ function Dialog.new(opts)
     d.pressed = nil
     d.w = d.t.w * Dialog.DX + 10
     d.h = d.t.h * Dialog.DY + 10 + (d.t.caption and (w31.CAPTION_H + 1) or 0)
-    local area = opts.area
-    d.x = opts.x or (area.x + (area.w - d.w) // 2)
-    d.y = opts.y or (area.y + math.max(0, (area.h - d.h) // 2))
+    if opts.x then d.x, d.y = opts.x, opts.y else d:center(opts.area) end
     d.controls = {}
     local group = 0
     for _, c in ipairs(d.t.controls) do
@@ -82,6 +80,13 @@ function Dialog.new(opts)
         end
     end
     return d
+end
+
+-- Centres the dialog in area (the canvas), as when it opens or the window
+-- is resized.
+function Dialog:center(area)
+    self.x = area.x + math.max(0, (area.w - self.w) // 2)
+    self.y = area.y + math.max(0, (area.h - self.h) // 2)
 end
 
 function Dialog:enabled(e)

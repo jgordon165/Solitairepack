@@ -48,8 +48,18 @@ Windows 3.0 and 3.1 keep the cards inside `SOL.EXE`. Without it, a 16-bit
 `CARDS.DLL` (Windows for Workgroups) can stand in for the cards.
 
 It opens like the original maximized on a 640x480 screen, shown at 1.5x
-(960x660; `--scale` changes it, and the window can be resized): the green
-table, the stock, the waste, the four foundations and the seven columns.
+(960x660; `--scale` changes the zoom, `--size 1280x720` the starting
+size): the green table, the stock, the waste, the four foundations and the
+seven columns.
+
+**Resizing.** Make the window bigger, maximize it, or press **F11** for full
+screen, and the table grows with it rather than stretching: the cards keep
+their size, the deck stays in the top left corner and the four foundations
+in the top right, and the seven columns spread out evenly between them,
+with more room below for long columns. Up to 640 pixels wide the spacing is
+the original's (margins as wide as the gaps). The mouse pointer moves with
+the table, staying over the card or pile it was over (or the same spot on
+an open dialog); it's left alone while you drag the window's border.
 Without `SOL.EXE` it still runs, with plain cards of its own.
 
 **Playing.** Click the deck to turn over cards (one or three, Game >
@@ -67,6 +77,7 @@ column to turn it over. Game > Undo takes back the last move.
 | Esc | Let go of the picked-up cards |
 | Alt, F10, F12 | The menus |
 | F1 | Help |
+| F11 | Full screen / window |
 
 **Controller** (SDL game controllers): D-pad moves the cursor, A picks up
 and puts down, B lets go, X turns the deck, Y sends every card it can to

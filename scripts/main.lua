@@ -14,6 +14,7 @@ local templates = require("ui.templates")
 
 game = {}
 
+-- The canvas: it follows the window's size (game.resize), 640 x 440 to start.
 local W, H = 640, 440
 local STATUS_H = 19
 
@@ -59,6 +60,10 @@ end
 
 local function relayout() L = table_.layout(area()) end
 
+local function screen() return { x = 0, y = 0, w = W, h = H } end
+
+local mouse_x, mouse_y   -- where the pointer was last seen on the canvas
+
 local function new_seed()
     deal_count = deal_count + 1
     if sp.seed then return sp.seed + deal_count - 1 end
@@ -85,7 +90,7 @@ end
 -- ---- dialogs ------------------------------------------------------------------
 
 local function message(caption, lines, buttons, onclose)
-    modal = Dialog.new({ template = templates.message(caption, lines, buttons), area = { x = 0, y = 0, w = W, h = H },
+    modal = Dialog.new({ template = templates.message(caption, lines, buttons), area = screen(),
                          onclose = function(d, id, key) modal = nil; if onclose then onclose(key) end end })
 end
 
@@ -111,7 +116,7 @@ local function open_options()
         return e and d.values[e.c.id]
     end
     modal = Dialog.new({
-        template = t, area = { x = 0, y = 0, w = W, h = H }, values = values,
+        template = t, area = screen(), values = values,
         enabled = function(c, key)
             if key == "keep score" then return modal == nil or vegas_chosen(modal) end
             return true
@@ -149,7 +154,7 @@ local function open_deck()
     local selected
     for _, c in ipairs(t.controls) do if back_of(c) == S.back then selected = c.id end end
     modal = Dialog.new({
-        template = t, area = { x = 0, y = 0, w = W, h = H }, selected = selected,
+        template = t, area = screen(), selected = selected,
         draw_owner = function(c, x, y, w, h, sel, focus)
             local id = back_of(c)
             if not id then return end
@@ -251,7 +256,7 @@ function game.layout() return L end
 -- ---- startup ----------------------------------------------------------------------
 
 function game.load()
-    sp.canvas(W, H)
+    W, H = sp.canvas()
     sp.title("Solitaire")
     S = settings.load()
     cards.load()
@@ -266,6 +271,68 @@ function game.load()
     game.deal()
     local has, err = sp.has_data()
     if not has then sp.log(err) end
+end
+
+-- Where the point (x, y) should be after the layout changes from old to
+-- new: on the same spot of the same card or pile when it's over one; else
+-- as far across the table, proportionally, and at the same height (the
+-- piles don't move up or down); over the menu bar, unchanged.
+function game.follow_point(old, new, x, y)
+    if y < Bar.H then return math.min(x, W - 1), y end
+    local kind, index, i = table_.hit(old, g, x, y)
+    if kind then
+        local ox, oy
+        if i then
+            local cs = table_.pile_cards(old, g, kind, index)
+            ox, oy = cs[i].x, cs[i].y
+        else
+            ox, oy = table_.pile_base(old, kind, index)
+        end
+        local nx, ny
+        if i then
+            local cs = table_.pile_cards(new, g, kind, index)
+            nx, ny = cs[i].x, cs[i].y
+        else
+            nx, ny = table_.pile_base(new, kind, index)
+        end
+        return nx + (x - ox), ny + (y - oy)
+    end
+    local fx = (x - old.area.x) / math.max(1, old.area.w)
+    local nx = new.area.x + math.floor(fx * new.area.w + 0.5)
+    local ny = math.min(y, new.area.y + new.area.h - 1)
+    return math.max(0, math.min(nx, W - 1)), math.max(0, ny)
+end
+
+-- The window was resized (or went full screen): the table takes the new
+-- size. The piles spread out evenly across it, the stock staying top left
+-- and the foundations top right (table.lua); open dialogs re-centre; and
+-- the mouse pointer, when it's free to move (pointer_free), follows what
+-- it was over.
+function game.resize(w, h, pointer_free)
+    local old = L
+    W, H = w, h
+    relayout()
+    if mouse_x and old then
+        local nx, ny = mouse_x, mouse_y
+        if modal then
+            -- Over a dialog: the same spot on the dialog, wherever it moves.
+            local dx, dy = modal.x, modal.y
+            modal:center(screen())
+            nx, ny = mouse_x + modal.x - dx, mouse_y + modal.y - dy
+        elseif not bar:is_open() then
+            nx, ny = game.follow_point(old, L, mouse_x, mouse_y)
+        end
+        nx = math.max(0, math.min(nx, W - 1))
+        ny = math.max(0, math.min(ny, H - 1))
+        mouse_x, mouse_y = nx, ny
+        if pointer_free then sp.warp_mouse(nx, ny) end
+    end
+    bar.width = W
+    drag = nil
+    if modal then modal:center(screen()) end
+    -- The canvas is new and blank, so the cascade's trails are gone: skip
+    -- to its end, "Deal Again?".
+    if win then end_win() end
 end
 
 -- ---- dragging -------------------------------------------------------------------------
@@ -320,6 +387,7 @@ end
 -- ---- input --------------------------------------------------------------------------------
 
 function game.mousepressed(x, y, button, clicks)
+    mouse_x, mouse_y = x, y
     if kb then kb.show = false end
     if win then end_win(); return end
     if bar:mousepressed(x, y, button) then return end
@@ -349,6 +417,7 @@ function game.mousepressed(x, y, button, clicks)
 end
 
 function game.mousemoved(x, y)
+    mouse_x, mouse_y = x, y
     if bar:mousemoved(x, y) then return end
     if drag then
         if math.abs(x - drag.sx) + math.abs(y - drag.sy) > 2 then drag.moved = true end

@@ -37,7 +37,8 @@ Without SOL.EXE the port uses its own copies of the menus and dialogs
 | Table colour | RGB 0, 128, 0 (VGA's dark green) **(check)** |
 | Backs | default 54 **(check)**; 56, 63, 64 and 65 animate now and then on the stock (timing **(check)**) |
 | Card | 71 x 96 |
-| Piles | the stock, the waste and four foundations along the top, seven columns below, evenly spaced: gap = (width - 7 x 71) / 8 |
+| Piles | the stock, the waste and four foundations along the top, seven columns below, evenly spaced: gap = (width - 7 x 71) / 8, the margins as wide as the gaps |
+| Wider than 640 | (the port's own) the margins stay 18 px, the stock top left and the last foundation top right, and the gaps between the columns grow evenly |
 | Top row | 6 px below the menu bar |
 | Columns | 6 px below the top row |
 | Column offsets | 3 px per face-down card; 15 per face-up card, squeezed to fit **(check)** |

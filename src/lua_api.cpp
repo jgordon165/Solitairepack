@@ -303,6 +303,12 @@ int l_draw_flip(lua_State* L) {
     return 0;
 }
 
+// sp.warp_mouse(x, y): moves the mouse pointer to canvas position (x, y).
+int l_warp_mouse(lua_State* L) {
+    eng(L)->video.warpMouse(iarg(L, 1), iarg(L, 2));
+    return 0;
+}
+
 int l_key_down(lua_State* L) {
     lua_pushboolean(L, input::isDown(luaL_checkstring(L, 1)));
     return 1;
@@ -352,7 +358,7 @@ void registerLuaApi(lua_State* L, Engine* e) {
         {"text_width", l_text_width}, {"draw", l_draw},
         {"key_down", l_key_down}, {"ticks", l_ticks}, {"title", l_title},
         {"quit", l_quit}, {"log", l_log},
-        {"platform", l_platform}, {"base_path", l_base_path}, {"draw_flip", l_draw_flip},
+        {"platform", l_platform}, {"base_path", l_base_path}, {"draw_flip", l_draw_flip}, {"warp_mouse", l_warp_mouse},
         {nullptr, nullptr},
     };
     lua_newtable(L);
