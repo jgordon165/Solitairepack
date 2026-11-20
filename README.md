@@ -145,8 +145,11 @@ and in a timed game -2 every 10 seconds and a bonus for a quick win.
 Vegas: $52 a game, $5 a card on the foundations, one pass through the deck
 (Draw One) or three (Draw Three). See `docs/original.md`.
 
-**The win.** The cards leave the foundations one by one and bounce down
-the window, leaving their trail, then it asks to deal again.
+**The deal and the win.** Each new game is dealt card by card, row by row,
+in the original's order (a click or a key finishes it). When you win, the
+cards leave the foundations one by one and bounce down the window leaving
+their trail, with the original's motion, then it asks to deal again. Both
+come from SOL.EXE's own code; see `docs/original.md`.
 
 **Where things are saved.** The options and the Vegas bank are a small text
 file in your user folder for apps: `%APPDATA%\jgordon165\Solitairepack` on

@@ -271,6 +271,39 @@ do
     st.reset()
 end
 
+-- ---- SOL.EXE's deal order and its win animation's motion -------------------------------------------
+do
+    local t = require("game.table")
+    check(#t.DEAL_ORDER == 28, "28 cards dealt to the columns")
+    check(t.DEAL_ORDER[1][1] == 1 and t.DEAL_ORDER[7][1] == 7 and t.DEAL_ORDER[8][1] == 2 and t.DEAL_ORDER[8][2] == 2,
+          "row by row, each from its first column to the seventh")
+    local per = t.dealt_counts(10)
+    check(per[1] == 1 and per[2] == 2 and per[4] == 2 and per[5] == 1, "the first ten: row one, then three of row two")
+    local c = require("game.cascade")
+    check(c.tdiv(-7, 10) == 0 and c.tdiv(-17, 10) == -1 and c.tdiv(17, 10) == 1 and c.tdiv(-24, -10) == 2,
+          "C's truncating division")
+    local r = c.ms_rand(1)
+    check(r() == 41 and r() == 18467 and r() == 6334, "the Microsoft C rand()")
+    -- One card's flight: it falls, bounces off the floor losing a fifth of
+    -- its speed, and leaves by a side.
+    local L = { area = { x = 0, y = 19, w = 640, h = 402 }, found = { { x = 500, y = 25 } } }
+    local g = { found = { { { rank = 1, suit = 0, up = true } }, {}, {}, {} } }
+    local cs = c.new(L, g, 5)
+    local drawn = 0
+    local real = require("game.cards").draw_face
+    require("game.cards").draw_face = function() drawn = drawn + 1 end
+    cs:launch()
+    local p = cs.cur
+    check(p.dx <= -15 or p.dx >= 15 or p.dx == -20, "never too slow sideways")
+    local bounced, steps = false, 0
+    while not cs:step() and steps < 5000 do
+        steps = steps + 1
+        if p.dy < 0 and p.y > L.area.y + L.area.h - 96 - 30 then bounced = true end
+    end
+    require("game.cards").draw_face = real
+    check(steps < 5000 and bounced and drawn == steps, "it bounces and leaves (" .. steps .. " steps)")
+end
+
 -- ---- Undo -----------------------------------------------------------------------------------
 do
     local g = blank({ scoring = "standard", draw = 1 })
@@ -485,6 +518,21 @@ if game and game.current then
     end)
     sp.sfx = real_sfx
     check(ok, "options and sounds: " .. tostring(err))
+end
+
+-- ---- the deal plays out card by card ----------------------------------------------------------------
+if game and game.current then
+    local ok, err = pcall(function()
+        game.keypressed("f2", false)
+        game.keypressed("y", false)          -- (a Windows 7 game would ask)
+        game.draw()
+        game.update(0.1); game.draw()        -- a few cards in
+        local g = game.current()
+        check(g:count() == 52, "all the cards are in play while dealing")
+        game.keypressed("escape", false)     -- a key finishes the deal
+        game.update(1 / 60); game.draw()
+    end)
+    check(ok, "the deal animation: " .. tostring(err))
 end
 
 -- ---- the Windows 7 mode through the game ------------------------------------------------------------

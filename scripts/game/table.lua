@@ -8,8 +8,8 @@ local decor = require("game.decor")
 local M = {}
 
 M.FACE_DOWN_DY = 3     -- how much of a face-down card shows under the next one
-M.FACE_UP_DY = 15      -- and of a face-up one
-M.FAN_DX = 12          -- Draw Three: the waste's top cards fanned to the right
+M.FACE_UP_DY = 15      -- and of a face-up one (SOL.EXE: card height * 4 / 25)
+M.FAN_DX = cards.W // 5   -- Draw Three: the waste's top cards fanned right, a fifth of a card (SOL.EXE)
 M.STACK_EVERY = 10     -- the stock and waste get thicker by a pixel every 10 cards
 
 -- The margin at each side, at most: what the original's even spacing gives
@@ -121,9 +121,6 @@ function M.hit(L, g, px, py)
     return nil
 end
 
--- Draws the table. `held` = { kind, index, i } leaves those cards out (they
--- are being dragged); back = the chosen back's bitmap id; frame = the
--- back's animation frame showing on the stock (nil: none).
 -- The rectangle a pile's cards cover (nil when it's empty), for its shadow.
 -- skip(kind, index, i) leaves out cards being dragged.
 local function pile_rect(L, g, kind, index, skip)
@@ -141,8 +138,35 @@ local function pile_rect(L, g, kind, index, skip)
     return x0, y0, x1 - x0, y1 - y0
 end
 
-function M.draw(L, g, back, held, frame)
+-- The deal, as SOL.EXE does it: row by row, each row from its first column
+-- to the seventh, one card at a time from the top of the stock, the first
+-- card of each row face up. M.DEAL_ORDER[n] = { column, row } of the n-th card.
+M.DEAL_ORDER = {}
+for row = 1, 7 do
+    for col = row, 7 do M.DEAL_ORDER[#M.DEAL_ORDER + 1] = { col, row } end
+end
+
+-- How many of each column's cards are on the table after the first n of
+-- the deal.
+function M.dealt_counts(n)
+    local per = { 0, 0, 0, 0, 0, 0, 0 }
+    for k = 1, math.min(n, #M.DEAL_ORDER) do
+        local c = M.DEAL_ORDER[k][1]
+        per[c] = per[c] + 1
+    end
+    return per
+end
+
+-- Draws the table. `held` = { kind, index, i } leaves those cards out (they
+-- are being dragged); back = the chosen back's bitmap id; frame = the
+-- back's animation frame showing on the stock (nil: none); dealt = while
+-- dealing, how many cards are on the columns so far (the rest are still
+-- in the stock).
+function M.draw(L, g, back, held, frame, dealt)
+    local per = dealt and M.dealt_counts(dealt)
+    local undealt = dealt and (#M.DEAL_ORDER - dealt) or 0
     local function skip(kind, index, i)
+        if per and kind == "tab" and i > per[index] then return true end
         return held and held.kind == kind and held.index == index and i >= held.i
     end
     -- First every pile's shadow on the table, so none falls on another
@@ -155,7 +179,17 @@ function M.draw(L, g, back, held, frame)
         if x then decor.shadow("pile", x, y, w, h) end
     end
     -- The stock: its cards, or the mark that says whether it turns over.
-    if #g.stock == 0 then
+    -- While dealing it still holds the cards not yet dealt.
+    if undealt > 0 then
+        local n = #g.stock + undealt
+        local x, y = L.stock.x, L.stock.y
+        for k = 1, n, M.STACK_EVERY do
+            local dx, dy = stack_offset(k)
+            cards.draw_back(back, x + dx, y + dy)
+        end
+        local dx, dy = stack_offset(n)
+        cards.draw_back(back, x + dx, y + dy)
+    elseif #g.stock == 0 then
         local left = g:passes_left()
         local can = #g.waste > 0 and (left == nil or left > 0)
         cards.draw_empty(L.stock.x, L.stock.y, can and cards.O_MARK or cards.X_MARK)

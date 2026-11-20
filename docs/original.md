@@ -7,8 +7,10 @@ what the port's own Lua uses (`scripts/game/rules.lua`,
 `scripts/game/table.lua`).
 
 Status: the resources below are confirmed against Windows 3.1's SOL.EXE
-(from the setup disk's SOL.EX_), and the layout against a screenshot of
-the original running. The items marked **(check)** are still to be
+(from the setup disk's SOL.EX_), the layout against a screenshot of the
+original running, and the deal, the shuffle, the win animation and some
+measurements against a disassembly of SOL.EXE (addresses as seg:offset in
+its code segments; `re/README.md` says how to make one). The items marked **(check)** are still to be
 confirmed, with a disassembly (`re/README.md`) or more screenshots.
 
 ## Resources the port reads
@@ -34,16 +36,16 @@ Without SOL.EXE the port uses its own copies of the menus and dialogs
 
 | | |
 |---|---|
-| Table colour | RGB 0, 128, 0 (VGA's dark green) **(check)** |
+| Table colour | RGB 0, 128, 0 (white on a monochrome display), seg1:01c4 |
 | Backs | default 54 **(check)**; 56, 63, 64 and 65 animate now and then on the stock (timing **(check)**) |
 | Card | 71 x 96 |
 | Piles | the stock, the waste and four foundations along the top, seven columns below, evenly spaced: gap = (width - 7 x 71) / 8, the margins as wide as the gaps |
 | Wider than 640 | (the port's own) the margins stay 18 px, the stock top left and the last foundation top right, and the gaps between the columns grow evenly |
 | Top row | 6 px below the menu bar |
 | Columns | 6 px below the top row |
-| Column offsets | 3 px per face-down card; 15 per face-up card, squeezed to fit **(check)** |
+| Column offsets | 3 px per face-down card **(check)**; face-up: card height * 4 / 25 = 15 (seg4:0124), squeezed to fit |
 | Empty piles | bitmap 53, its white showing the table |
-| Draw Three | the waste's top three fanned 12 px apart **(check)** |
+| Draw Three | the waste's top three fanned a fifth of a card apart, 71 / 5 = 14 px (seg4:00d1) |
 | Stacks | the stock and waste get thicker every 10 cards **(check)** |
 
 ## Rules
@@ -87,18 +89,48 @@ Status bar, Outline dragging, Keep score (Vegas only), and the back. The
 port keeps them in its own settings file, not WIN.INI. Changing the draw,
 the scoring or the timer deals a new game.
 
+## The deal
+
+From the disassembly (seg4:0f19, the game's deal): every pile is emptied,
+the deck refilled and shuffled, the foundations drawn empty, then the
+columns dealt **row by row**: for row 1 to 7, for each column from that row's
+own to the seventh, the top card comes off the deck (turned face up first
+when it's the row's first column), goes onto the column, and the column
+and the deck are redrawn at once. There's no sliding: the cards appear one
+after another as fast as the PC can draw them, which on the machines of
+the day was visible as a quick card-by-card deal. The port plays the same
+order at 35 ms a card (`table.DEAL_ORDER`, `main.lua`); a click or a key
+finishes it.
+
+The shuffle (seg5:0e89): five passes, each swapping every card with one
+picked by `rand() % count`, using the Microsoft C library's `rand()`
+(seg8:01de: `seed = seed * 214013 + 2531011`, `(seed >> 16) & 0x7FFF`),
+seeded once from the clock at startup (seg1:01ec). The port's own shuffle
+is still its simpler seeded one (**to do**: the deck's starting order, to
+reproduce the original's deals exactly).
+
+A timer of 250 ms (seg1:0399) drives the clock and the animated backs. The
+back the first time is random: `rand() % 12` (seg1:0b6a).
+
 ## The win
 
-The foundations' cards leave one at a time, kings first, each thrown left
-or right and bouncing along the bottom of the window, the table not
-redrawn, so each card leaves a trail of itself (`scripts/game/cascade.lua`).
-Then "Deal again?".
+From the disassembly (seg4:1439): the foundations' cards leave one at a
+time, kings first (rank 13 down to 1, foundations left to right). Each
+gets `dx = rand() % 110 - 65` (made -20 if its size is under 15, so mostly
+leftwards) and `dy = rand() % 110 - 75`, in tenths of a pixel a step. Each
+step draws the card, then `x += dx / 10`, `y += dy / 10`, `dy += 3`, and
+when below the floor (the window's height less a card) and falling,
+`dy = dy * 8 / -10`: a bounce keeping four fifths of the speed. A card is
+done when it's off the left or right edge. The table isn't redrawn, so
+every card leaves a trail. A key or a click (seg4:1323 peeks for them)
+stops it. Then "Deal Again?". The original ran unthrottled; the port does
+90 steps a second (`scripts/game/cascade.lua`).
 
 ## The shuffle
 
-**(check)** The port shuffles with its own seeded generator (Fisher-Yates
-on the C library's example `rand`) so tests and `--seed` are repeatable.
-SOL.EXE's own shuffle (it seeds from the clock) is still to be read.
+The original's is described under The deal. The port shuffles with its own
+seeded generator (Fisher-Yates on the C library's example `rand`) so tests
+and `--seed` are repeatable.
 
 ## The port's own additions
 
