@@ -335,6 +335,9 @@ int main(int argc, char** argv) {
         eng.video.present();
     }
 
+    // game.quit(): the window is closing (the Windows 7 mode saves a game in
+    // progress).
+    if (ok) callLua(L, "quit", 0);
     lua_close(L);
     eng.audio.close();
     SDL_Quit();

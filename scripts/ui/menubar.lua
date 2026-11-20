@@ -27,7 +27,8 @@ end
 Bar.command = command
 
 -- opts: { width, on_command = fn(name), enabled = fn(name) -> bool,
---         shortcut = fn(name) -> text shown at the right, e.g. "F2" }
+--         shortcut = fn(name) -> text shown at the right, e.g. "F2",
+--         extra = { "&Hint", ... } more Game menu items, put before Exit }
 function Bar.new(opts)
     local b = setmetatable({}, Bar)
     b.width = opts.width
@@ -37,6 +38,20 @@ function Bar.new(opts)
     local menus = sp.menu and sp.menu(1, "sol")
     b.from_sol = type(menus) == "table" and #menus > 0
     b.menus = b.from_sol and menus or FALLBACK
+    if opts.extra and #opts.extra > 0 and b.menus[1] then
+        -- A copy of the menus with the extra items in the first (Game)
+        -- menu, ahead of its last separator (the one before Exit).
+        local copy = {}
+        for i, m in ipairs(b.menus) do copy[i] = m end
+        local items = {}
+        for i, it in ipairs(b.menus[1].items or {}) do items[i] = it end
+        local at = #items + 1
+        for k = #items, 1, -1 do if items[k].separator then at = k; break end end
+        table.insert(items, at, { separator = true, text = "" })
+        for k, text in ipairs(opts.extra) do table.insert(items, at + k, { text = text }) end
+        copy[1] = { text = b.menus[1].text, items = items, flags = b.menus[1].flags }
+        b.menus = copy
+    end
     b.open = nil      -- index of the open menu
     b.sel = nil       -- its highlighted item
     b.active = false  -- the bar has the keyboard (Alt pressed) without a menu open

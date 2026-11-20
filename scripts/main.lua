@@ -12,6 +12,8 @@ local Dialog = require("ui.dialog")
 local Bar = require("ui.menubar")
 local templates = require("ui.templates")
 local decor = require("game.decor")
+local win7 = require("game.win7")
+local win7_stats = require("game.win7_stats")
 
 game = {}
 
@@ -23,6 +25,7 @@ local S            -- settings
 local g            -- the game in play (rules)
 local L            -- the table's layout
 local bar          -- the menu bar
+local make_bar     -- (defined with the commands)
 local modal        -- the open dialog, if any
 local drag         -- the cards being dragged
 local kb           -- the keyboard / controller cursor
@@ -120,15 +123,40 @@ end
 
 -- ---- dealing ------------------------------------------------------------------
 
-function game.deal()
+-- A Windows 7 game given up (a new deal, a restart, another mode) counts
+-- as a loss once a move has been made.
+local function give_up_win7()
+    if g and g.win7 and g.started and not g.over then win7_stats.record(false, g.score) end
+    sp.storage_write("win7_saved", "")
+end
+
+local hint                 -- the hint showing: { move, t }, or nil
+local hint_index = 0
+local auto_t = 0           -- the Windows 7 mode's auto-complete clock
+
+local function fresh_game()
+    drag, win, hint = nil, nil, nil
+    hint_index, auto_t = 0, 0
+    if kb then kb.held = nil end
+end
+
+function game.deal(same_deal)
     -- In Vegas with Keep score, the bank carries what this deal left.
     if g and g.scoring == "vegas" and S.keep_score then S.bank = g.score end
-    g = rules.new({ draw = S.draw, scoring = S.scoring, timed = S.timed, keep_score = S.keep_score, bank = S.bank,
-                    auto_flip = S.auto_flip })
-    with_sounds(g)
-    g:deal(new_seed())
-    drag, win = nil, nil
-    if kb then kb.held = nil end
+    give_up_win7()
+    if S.scoring == "win7" then
+        -- The Windows 7 mode: its own rules (game/win7.lua).
+        local seed = same_deal and g and g.seed or new_seed()
+        g = win7.new({ draw = S.draw, timed = S.timed })
+        with_sounds(g)
+        g:deal(seed)
+    else
+        g = rules.new({ draw = S.draw, scoring = S.scoring, timed = S.timed, keep_score = S.keep_score, bank = S.bank,
+                        auto_flip = S.auto_flip })
+        with_sounds(g)
+        g:deal(new_seed())
+    end
+    fresh_game()
     save()
 end
 
@@ -142,6 +170,7 @@ end
 local option_keys = {
     ["draw one"] = { "draw", 1 }, ["draw three"] = { "draw", 3 },
     ["standard"] = { "scoring", "standard" }, ["vegas"] = { "scoring", "vegas" }, ["none"] = { "scoring", "none" },
+    ["windows 7"] = { "scoring", "win7" },
     ["timed game"] = { "timed", true }, ["status bar"] = { "status", true },
     ["outline dragging"] = { "outline", true }, ["keep score"] = { "keep_score", true },
     -- The port's own, from the later Windows card games (templates.with_extras).
@@ -168,6 +197,11 @@ local function open_options()
         template = t, area = screen(), values = values,
         enabled = function(c, key)
             if key == "keep score" then return modal == nil or vegas_chosen(modal) end
+            -- The Windows 7 mode always flips uncovered cards.
+            if key == "flip cards automatically" and modal then
+                local e = modal:find("windows 7")
+                return not (e and modal.values[e.c.id])
+            end
             return true
         end,
         onclose = function(d, id, key)
@@ -193,6 +227,7 @@ local function open_options()
             relayout()
             save()
             -- Changing how it's played or scored starts a new game, as in the original.
+            if S.scoring ~= old.scoring then make_bar() end
             if S.draw ~= old.draw or S.scoring ~= old.scoring or S.timed ~= old.timed then
                 if S.scoring == "vegas" and old.scoring ~= "vegas" then S.bank = 0 end
                 game.deal()
@@ -252,16 +287,64 @@ local function about()
     message("About Solitaire", lines, { "OK" })
 end
 
-local function confirm_exit()
+-- Leaving: a Windows 7 game in progress is saved, to carry on next time
+-- (as the Vista / 7 game does).
+function game.quit()
+    if g and g.win7 and g.started and not g.over then sp.storage_write("win7_saved", g:save())
+    elseif g and g.win7 then sp.storage_write("win7_saved", "") end
     save()
+end
+
+local function confirm_exit()
+    game.quit()
     sp.quit(0)
+end
+
+-- ---- the Windows 7 mode's commands --------------------------------------------
+
+local function in_progress() return g.win7 and g.started and not g.over end
+
+-- A new deal or a restart gives up the game in play: ask first.
+local function confirm_give_up(what, fn)
+    if not in_progress() then fn(); return end
+    message("Solitaire", { what, "This game will count as a loss." }, { "&Yes", "&No" }, function(key)
+        if key == "yes" then fn() end
+    end)
+end
+
+local function show_hint()
+    if not g.win7 or g.over then return end
+    local list = g:hints()
+    if #list == 0 then
+        message("Solitaire", { "There are no more moves.", "Deal a new game?" }, { "&Yes", "&No" }, function(key)
+            if key == "yes" then give_up_win7(); game.deal() end
+        end)
+        return
+    end
+    -- Pressing it again shows the next hint.
+    hint_index = hint_index % #list + 1
+    hint = { move = list[hint_index], t = 0 }
+end
+
+local function show_stats()
+    local lines = win7_stats.lines()
+    message("Statistics", lines, { "OK", "&Reset" }, function(key)
+        if key == "reset" then
+            message("Statistics", { "Reset the statistics?" }, { "&Yes", "&No" }, function(k)
+                if k == "yes" then win7_stats.reset() end
+            end)
+        end
+    end)
 end
 
 -- ---- commands (the menus and their keys) --------------------------------------
 
 local commands = {
-    deal = function() game.deal() end,
-    undo = function() if g:undo() then drag = nil end end,
+    deal = function() confirm_give_up("Deal a new game?", function() game.deal() end) end,
+    undo = function() if g:undo() then drag, hint = nil, nil end end,
+    hint = show_hint,
+    ["restart this game"] = function() confirm_give_up("Restart this game?", function() game.deal(true) end) end,
+    statistics = show_stats,
     deck = open_deck,
     options = open_options,
     exit = confirm_exit,
@@ -286,6 +369,15 @@ end
 
 local shortcuts = { deal = "F2", undo = "Ctrl+Z", contents = "F1" }
 
+-- The menu bar; in the Windows 7 mode the Game menu gains Hint, Restart and
+-- Statistics.
+local WIN7_MENU = { "&Hint\tH", "&Restart this game", "S&tatistics..." }
+function make_bar()
+    bar = Bar.new({ width = W, on_command = run, enabled = enabled,
+                    extra = S.scoring == "win7" and WIN7_MENU or nil,
+                    shortcut = function(name) return not bar.from_sol and shortcuts[name] or nil end })
+end
+
 -- ---- the win --------------------------------------------------------------------
 
 local function check_win()
@@ -294,6 +386,11 @@ local function check_win()
         if kb then kb.held = nil end
         win = cascade.new(L, g, new_seed())
         win.fresh = true   -- draw the whole table once more, then let it trail
+        hint = nil
+        if g.win7 then
+            win7_stats.record(true, g.score)
+            sp.storage_write("win7_saved", "")
+        end
         save()
     end
 end
@@ -328,9 +425,23 @@ function game.load()
     for _, id in ipairs(cards.back_ids()) do if id == S.back then ok = true end end
     if not ok then S.back = cards.back_ids()[1] end
     relayout()
-    bar = Bar.new({ width = W, on_command = run, enabled = enabled,
-                    shortcut = function(name) return not bar.from_sol and shortcuts[name] or nil end })
+    make_bar()
     game.deal()
+    -- A Windows 7 game saved last time: carry on with it?
+    if S.scoring == "win7" then
+        local saved = win7.restore(sp.storage_read("win7_saved"))
+        if saved then
+            message("Solitaire", { "Do you want to continue your saved game?" }, { "&Yes", "&No" }, function(key)
+                if key == "yes" then
+                    g = with_sounds(saved)
+                    fresh_game()
+                else
+                    win7_stats.record(false, saved.score)
+                end
+                sp.storage_write("win7_saved", "")
+            end)
+        end
+    end
     local has, err = sp.has_data()
     if not has then sp.log(err) end
 end
@@ -450,6 +561,7 @@ end
 
 function game.mousepressed(x, y, button, clicks)
     mouse_x, mouse_y = x, y
+    hint = nil
     if kb then kb.show = false end
     if win then end_win(); return end
     if bar:mousepressed(x, y, button) then return end
@@ -564,7 +676,8 @@ function game.keypressed(k, isrepeat)
     if modal then modal:keypressed(k); return end
     if bar:keypressed(k) then return end
     local ctrl = sp.key_down("left ctrl") or sp.key_down("right ctrl")
-    if k == "f2" then game.deal(); return end
+    if k == "f2" then commands.deal(); return end
+    if k == "h" and g.win7 then show_hint(); return end
     if k == "f1" then open_help("contents"); return end
     if (ctrl and k == "z") or k == "backspace" or k == "pad back" then commands.undo(); return end
     if k == "escape" or k == "pad start" or k == "f12" then
@@ -595,6 +708,19 @@ end
 
 function game.update(dt)
     game.last_dt = dt   -- the cascade runs in game.draw, at this frame's pace
+    if hint then
+        hint.t = hint.t + dt
+        if hint.t > 2.0 then hint = nil end
+    end
+    -- Windows 7 mode: once it's solved, the cards go up by themselves.
+    if g.win7 and not modal and not win and not drag and g:solved() and not g.over then
+        auto_t = auto_t + dt
+        while auto_t >= 0.09 and not g.over do
+            auto_t = auto_t - 0.09
+            if not g:auto_step() then break end
+        end
+        check_win()
+    end
     if not modal and not win and not bar:is_open() then g:tick(dt) end
     if not win then animate(dt) end
 end
@@ -612,7 +738,16 @@ local function draw_status()
     elseif g.scoring == "standard" then
         parts[#parts + 1] = score_label .. g.score
     end
-    if g.timed then parts[#parts + 1] = (sp.string(102) or "Time: ") .. math.floor(g.time) end
+    if g.scoring == "win7" then
+        parts[#parts + 1] = score_label .. g.score
+        parts[#parts + 1] = "Moves: " .. g.moves
+    end
+    if g.timed then
+        local t = math.floor(g.time)
+        -- The Windows 7 mode shows minutes and seconds.
+        local shown = g.win7 and string.format("%d:%02d", t // 60, t % 60) or tostring(t)
+        parts[#parts + 1] = (sp.string(102) or "Time: ") .. shown
+    end
     local s = table.concat(parts, "     ")
     w31.text(W - 10 - w31.width(s), y + 4, s)
     if win then
@@ -636,6 +771,39 @@ local function draw_dragged()
         local r = drag.rects[k]
         if k > 1 then decor.shadow("overlap", drag.x + r.dx, drag.y + r.dy, cards.W, cards.H) end
         cards.draw_face(c, drag.x + r.dx, drag.y + r.dy)
+    end
+end
+
+-- The hint: the cards to move shown first (highlighted for a second), then
+-- where they go.
+local function draw_hint()
+    if not hint or modal or win then return end
+    local m = hint.move
+    local function shade(x, y, w, h)
+        sp.fill(x, y, w, h, 0, 0, 128, 110)
+        for k = 0, 1 do
+            sp.fill(x - k, y - k, w + 2 * k, 1, 255, 255, 0)
+            sp.fill(x - k, y + h - 1 + k, w + 2 * k, 1, 255, 255, 0)
+            sp.fill(x - k, y - k, 1, h + 2 * k, 255, 255, 0)
+            sp.fill(x + w - 1 + k, y - k, 1, h + 2 * k, 255, 255, 0)
+        end
+    end
+    if hint.t < 1.0 then
+        local f = m.from
+        local cs = table_.pile_cards(L, g, f.kind, f.index)
+        if f.kind == "stock" or #cs == 0 then
+            local x, y = table_.pile_base(L, f.kind, f.index)
+            shade(x, y, cards.W, cards.H)
+        else
+            local i = math.min(f.i or #cs, #cs)
+            local last = cs[#cs]
+            shade(cs[i].x, cs[i].y, cards.W, last.y + cards.H - cs[i].y)
+        end
+    elseif m.to then
+        local cs = table_.pile_cards(L, g, m.to.kind, m.to.index)
+        local x, y
+        if #cs > 0 then x, y = cs[#cs].x, cs[#cs].y else x, y = table_.pile_base(L, m.to.kind, m.to.index) end
+        shade(x, y, cards.W, cards.H)
     end
 end
 
@@ -677,6 +845,7 @@ function game.draw()
     table_.draw(L, g, S.back, held, anim.frame)
     draw_dragged()
     draw_cursor()
+    draw_hint()
     if win then win.fresh = false end
     draw_status()
     bar:draw()

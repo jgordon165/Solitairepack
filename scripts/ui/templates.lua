@@ -89,21 +89,63 @@ end
 -- boxes and the OK / Cancel row moved down to make room.
 M.EXTRA_OPTIONS = { "&Flip cards automatically", "Blue-&green table", "&Card sounds", "S&mooth cards",
                     "Satin tabl&e", "Card s&hadows" }
+local function key(text) return (text or ""):gsub("&", ""):lower() end
+
 function M.with_extras(t)
     local out = { caption = t.caption, w = t.w, h = t.h, x = t.x, y = t.y, style = t.style, controls = {} }
     local push_y, left = nil, nil
+    -- A fourth scoring choice, "Windows 7", under "None": the Scoring box
+    -- grows a row and whatever is below it in its column moves down.
+    local none, group
+    for _, c in ipairs(t.controls) do
+        if key(c.text) == "none" then none = c end
+        if key(c.text) == "scoring" then group = c end
+    end
+    local grow = (none and group) and 12 or 0
     for _, c in ipairs(t.controls) do
         local copy = {}
         for k, v in pairs(c) do copy[k] = v end
+        if grow > 0 then
+            if c == group then
+                copy.h = c.h + grow
+            elseif c.y >= group.y + group.h and c.x >= group.x - 2 and c.x < group.x + group.w
+                   and not ((c.class or ""):lower() == "button" and (c.style & 0xF) <= 1) then
+                -- In the Scoring box's column, below it (Keep score); the
+                -- OK / Cancel row is placed after.
+                copy.y = c.y + grow
+            end
+        end
         out.controls[#out.controls + 1] = copy
+        if c == none then
+            out.controls[#out.controls + 1] = button(c.x, c.y + 12, c.w, c.h, 209, "&Windows 7", BS_AUTORADIOBUTTON)
+        end
         local style = c.style & 0xF
         if (c.class or ""):lower() == "button" then
-            if style == 0 or style == 1 then push_y = math.min(push_y or c.y, c.y)
+            if style == 0 or style == 1 then push_y = math.min(push_y or copy.y, copy.y)
             elseif style == 2 or style == 3 then left = math.min(left or c.x, c.x) end
         end
     end
-    push_y = push_y or t.h - 18
+    push_y = push_y or (t.h - 18)
     left = left or 6
+    -- Below the grown Scoring box, if it now reaches lower than the buttons did.
+    if grow > 0 then
+        local bottom = 0
+        for _, c in ipairs(out.controls) do
+            local style = c.style & 0xF
+            if not ((c.class or ""):lower() == "button" and (style == 0 or style == 1)) then
+                bottom = math.max(bottom, c.y + c.h)
+            end
+        end
+        if bottom + 2 > push_y then
+            local d = bottom + 2 - push_y
+            for _, c in ipairs(out.controls) do
+                local style = c.style & 0xF
+                if (c.class or ""):lower() == "button" and (style == 0 or style == 1) then c.y = c.y + d end
+            end
+            push_y = push_y + d
+            out.h = out.h + d
+        end
+    end
     local row, shift = 12, #M.EXTRA_OPTIONS * 12 + 2
     for _, c in ipairs(out.controls) do
         if c.y >= push_y then c.y = c.y + shift end
@@ -112,7 +154,7 @@ function M.with_extras(t)
         out.controls[#out.controls + 1] = button(left, push_y + (k - 1) * row, t.w - 2 * left, 12, 200 + k, text,
                                                  BS_AUTOCHECKBOX | WS_TABSTOP | (k == 1 and WS_GROUP or 0))
     end
-    out.h = t.h + shift
+    out.h = out.h + shift
     return out
 end
 
