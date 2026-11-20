@@ -12,6 +12,8 @@
 -- 1 suit, always the same suit). But, as in Spider, cards only move
 -- together when they're all one suit in order (7D 6D 5D): from a column
 -- of 7D 6D 5S 4D only the 4D can be picked up. Single cards always move.
+-- And, as in Spider, any card (or run) can go into an empty column, not
+-- just a King. The foundations are as always: Aces first.
 --
 -- Foundations build up by suit from the Ace as always; with fewer suits,
 -- several foundations hold the same suit. Its statistics are kept apart
@@ -56,7 +58,7 @@ function M:can_drop(cards, kind, index)
     if not first then return false end
     local p = self.tab[index]
     local t = p[#p]
-    if not t then return first.rank == 13 end
+    if not t then return true end   -- any card into an empty column
     if not t.up or first.rank ~= t.rank - 1 then return false end
     return red(t) ~= red(first) or t.suit == first.suit
 end

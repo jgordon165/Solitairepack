@@ -341,6 +341,15 @@ do
     check(not run:move("tab", 1, 3, "tab", 3) and #run.tab[1] == 4, "the mixed run can't be moved")
     run.tab[4] = { C(8, 0) }
     check(run:move("tab", 2, 2, "tab", 4) and #run.tab[4] == 3, "7D 6D onto 8C")
+    -- Any card into an empty column (the screenshot: the 4H), not just Kings;
+    -- the foundations still want an Ace.
+    local em = blank_k(4)
+    check(em:can_drop({ C(4, 2) }, "tab", 5), "a 4 into an empty column")
+    check(em:can_drop({ C(9, 1), C(8, 1) }, "tab", 6), "a run into an empty column")
+    check(em:can_drop({ C(13, 3) }, "tab", 7), "a King still")
+    check(not em:can_drop({ C(4, 2) }, "found", 1), "a foundation still wants an Ace")
+    em.waste = { C(5, 0) }
+    check(em:move("waste", nil, 1, "tab", 1) and #em.tab[1] == 1, "the waste's 5 into an empty column")
     -- Hints don't offer runs that can't be picked up.
     local hr = blank_k(4)
     hr.tab[1] = { C(2, 0, false), C(7, 1), C(6, 3) }
@@ -352,6 +361,9 @@ do
     w7r:deal(1)
     w7r.tab[1] = { C(7, 1), C(6, 3) }
     check(w7r:can_pick("tab", 1, 1), "Windows 7 mode: alternating runs still move")
+    w7r.tab[5] = {}
+    check(not w7r:can_drop({ C(4, 2) }, "tab", 5) and w7r:can_drop({ C(13, 2) }, "tab", 5),
+          "Windows 7 mode: Kings only into an empty column")
     -- The Windows 7 mode keeps the classic rule.
     local w7 = require("game.win7").new({ draw = 1 })
     w7:deal(1)

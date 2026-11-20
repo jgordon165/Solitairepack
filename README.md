@@ -151,7 +151,9 @@ of the other colour (as in Klondike) or of the same suit (as in Spider):
 the 9 of spades on the 10 of hearts or on the 10 of spades, but not on the
 10 of clubs. Cards only move together when they're all one suit in order
 (7♦ 6♦ 5♦), as in Spider: from 7♦ 6♦ 5♠ 4♦ only the 4♦ can be picked up.
-Single cards always move.
+Single cards always move. Any card or run can go into an empty column,
+not just a King (also from Spider); the foundations still start with an
+Ace.
 
 Foundations build up by suit from the Ace, so with fewer suits several
 hold the same one. Statistics are kept for each number of suits
