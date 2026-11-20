@@ -160,13 +160,14 @@ std::vector<uint8_t> readLens(MsbBits& in, unsigned type, size_t n) {
         std::fill(lens.begin(), lens.end(), l);
         break;
     }
-    case 1:     // first in 4 bits; then 0 = same, 10 = one more, 11 + 4 bits = new
+    case 1:     // first in 4 bits; then 0 = the same, 10 = one more, 11 + 4 bits = new
         c = in.bits(4);
         lens[0] = static_cast<uint8_t>(c);
         for (size_t i = 1; i < n; ++i) {
-            if (in.bits(1) == 0) {}
-            else if (in.bits(1) == 0) ++c;
-            else c = in.bits(4);
+            if (in.bits(1) == 1) {          // 0: the same length again
+                if (in.bits(1) == 0) ++c;
+                else c = in.bits(4);
+            }
             lens[i] = static_cast<uint8_t>(c);
         }
         break;

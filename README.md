@@ -142,8 +142,7 @@ menu and dialog in SOL.EXE):
 SOLITAIREPACK_DATA=/path/to/WIN31 cmake -S . -B build && ctest --test-dir build
 ```
 
-`solitairepack_audio_tests --wav <folder>` writes the card sounds out as
-.wav files to listen to. `--seed N` deals the same games every run; `--frames N --screenshot out.bmp`
+`--seed N` deals the same games every run; `--frames N --screenshot out.bmp`
 runs headless and saves the last frame.
 
 ## CI and releases
