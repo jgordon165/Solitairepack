@@ -218,6 +218,9 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s (playing with plain cards)\n", eng.dataError.c_str());
     }
 
+    // The window and taskbar icons on Windows: icon resource 1 (res/solitairepack.rc).
+    SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON, "1");
+    SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL, "1");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;

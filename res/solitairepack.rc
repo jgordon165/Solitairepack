@@ -1,0 +1,3 @@
+// Solitairepack's icon. Resource 1 is the first icon, the one Explorer shows,
+// and the one main.cpp hands SDL for the window and taskbar.
+1 ICON "solitairepack.ico"

@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "font_small.h"
+#include "icon_rgba.h"
 #include "font_system.h"
 
 #include <algorithm>
@@ -46,6 +47,7 @@ bool Video::open(const std::string& title, int canvasW, int canvasH, double scal
     win_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                             static_cast<int>(canvasW * scale), static_cast<int>(canvasH * scale), SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!win_) { std::fprintf(stderr, "window: %s\n", SDL_GetError()); return false; }
+    setIcon();
     ren_ = SDL_CreateRenderer(win_, -1, SDL_RENDERER_PRESENTVSYNC);
     if (!ren_) ren_ = SDL_CreateRenderer(win_, -1, SDL_RENDERER_SOFTWARE);
     if (!ren_) { std::fprintf(stderr, "renderer: %s\n", SDL_GetError()); return false; }
@@ -61,6 +63,19 @@ bool Video::open(const std::string& title, int canvasW, int canvasH, double scal
     setCanvas(canvasW, canvasH);
     fitCanvas();
     return true;
+}
+
+void Video::setIcon() {
+#ifdef _WIN32
+    // Windows takes the icon from the program's resources (all its sizes),
+    // through the hints set before SDL_Init.
+#else
+    SDL_Surface* s = SDL_CreateRGBSurfaceWithFormatFrom(const_cast<unsigned char*>(icon::kRGBA), icon::kWidth, icon::kHeight,
+                                                        32, icon::kWidth * 4, SDL_PIXELFORMAT_RGBA32);
+    if (!s) return;
+    SDL_SetWindowIcon(win_, s);
+    SDL_FreeSurface(s);
+#endif
 }
 
 bool Video::fitCanvas() {

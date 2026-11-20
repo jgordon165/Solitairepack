@@ -21,6 +21,8 @@ public:
     // Resizes the canvas to the window's size divided by the zoom (no
     // smaller than the minimum given at open). True when it changed.
     bool fitCanvas();
+    // The window's icon (on Windows it comes from the program's resources).
+    void setIcon();
     // Full screen (the desktop's resolution) or back to a window.
     void toggleFullscreen();
     void windowSize(int& w, int& h) const;
