@@ -75,6 +75,10 @@ add_executable(solitairepack
     src/storage.cpp
     src/audio.cpp
     src/lua_api.cpp)
+if(WIN32)
+    # The program's icon (tools/make_icon.py draws it).
+    target_sources(solitairepack PRIVATE res/solitairepack.rc)
+endif()
 target_link_libraries(solitairepack PRIVATE solitairepack_formats SDL2::SDL2-static SDL2::SDL2main lua_static)
 solitairepack_warnings(solitairepack)
 if(MSVC)

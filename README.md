@@ -1,5 +1,7 @@
 # Solitairepack
 
+<img src="res/solitairepack.png" width="96" align="right" alt="Solitairepack's icon">
+
 [![CI-build](https://github.com/jgordon165/Solitairepack/actions/workflows/ci-build.yml/badge.svg)](https://github.com/jgordon165/Solitairepack/actions/workflows/ci-build.yml)
 [![code-analysis](https://github.com/jgordon165/Solitairepack/actions/workflows/code-analysis.yml/badge.svg)](https://github.com/jgordon165/Solitairepack/actions/workflows/code-analysis.yml)
 
@@ -186,6 +188,7 @@ Windows, `~/.local/share/jgordon165/Solitairepack` on Linux,
 | `scripts/game/` | The rules (`rules.lua`), the cards (`cards.lua`), the table (`table.lua`), the win (`cascade.lua`), the options (`settings.lua`) |
 | `scripts/ui/` | Windows 3.1-style drawing (`win31.lua`), the menu bar, dialogs, and the port's own dialog templates |
 | `tests/` | Format tests on files built in memory, and the Lua rule and interface tests |
+| `res/` | The program's icon: an original drawing after the Windows 3.1 one, with a spider and web from the later Spider Solitaire. `tools/make_icon.py` draws it (every size, plus `src/icon_rgba.h` for the window icon) |
 | `re/`, `tools/` | Reverse-engineering workflow: identify, list and extract resources, decompile with Ghidra |
 | `docs/formats.md` | NE and resource formats as the port reads them |
 | `docs/original.md` | What the port takes from SOL.EXE: layout, rules, scoring |
