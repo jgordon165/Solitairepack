@@ -102,6 +102,14 @@ SOL.EXE's own shuffle (it seeds from the clock) is still to be read.
 
 ## The port's own additions
 
+The Windows 7 mode (Options > Scoring > Windows 7) is Klondike as the
+Vista / 7 Solitaire plays it, in its own rules module
+(`scripts/game/win7.lua`, statistics in `win7_stats.lua`): unlimited undo,
+hints, automatic turning up of uncovered cards, auto-complete, Restart
+this game, statistics, and saving a game in progress to carry on next
+time. Its scoring follows the Windows standard listed above, with no limit
+on passes.
+
 From the later Windows card games, off the original's path (Options, below
 the original's): Flip cards automatically, the Blue-green table (RGB 0,
 112, 104) and Card sounds (synthesized in `src/audio.cpp`: no samples are

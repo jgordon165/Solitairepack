@@ -177,6 +177,100 @@ do
     check(f:to_foundation("tab", 3) and f.tab[3][1].up, "also when a card goes up to a foundation")
 end
 
+-- ---- the Windows 7 mode (game/win7.lua) -----------------------------------------------------------
+do
+    local win7 = require("game.win7")
+    local function blank7(opts)
+        local g = win7.new(opts or { draw = 1, timed = true })
+        g:deal(1)
+        g.stock, g.waste, g.found = {}, {}, { {}, {}, {}, {} }
+        for i = 1, 7 do g.tab[i] = {} end
+        return g
+    end
+    local g = win7.new({ draw = 3 }):deal(42)
+    check(g:count() == 52 and #g.stock == 24 and g.win7 and g.scoring == "win7", "win7: the deal")
+    local r = rules.new({ draw = 3 }):deal(42)
+    check(g.tab[7][7].rank == r.tab[7][7].rank and g.tab[7][7].suit == r.tab[7][7].suit, "win7: a seed deals the same cards")
+
+    local w = blank7()
+    w.tab[1] = { C(4, 0, false), C(9, 2) }
+    w.tab[2] = { C(10, 3) }
+    w.waste = { C(1, 0) }
+    check(w:move("tab", 1, 2, "tab", 2) and w.tab[1][1].up and w.score == 5, "win7: a move turns up the card under it, +5")
+    check(w:move("waste", nil, 1, "found", 1) and w.score == 15, "win7: to a foundation +10")
+    check(w.moves == 2, "win7: moves counted")
+    check(w:undo() and w:undo(), "win7: undo, and undo again")
+    check(#w.tab[1] == 2 and not w.tab[1][1].up and #w.waste == 1 and w.score == 0, "win7: back to the start")
+    check(not w:undo(), "win7: nothing before the deal")
+    check(w.moves == 4, "win7: undos count as moves")
+
+    local d1 = blank7({ draw = 1 })
+    d1.stock = { C(5, 0, false) }
+    d1.score = 300
+    d1:draw()
+    check(d1:draw() and d1.score == 200, "win7: Draw One, a pass after the first costs 100")
+    local d3 = blank7({ draw = 3 })
+    d3.stock = { C(5, 0, false) }
+    d3.score = 100
+    for _ = 1, 2 do d3:draw(); d3:draw() end
+    check(d3.score == 100 and d3.passes == 3, "win7: three free passes")
+    d3:draw(); d3:draw()
+    check(d3.score == 80, "win7: Draw Three, the 4th pass and on cost 20 (" .. d3.score .. ")")
+    check(d3:passes_left() == nil, "win7: no limit on passes")
+
+    local t = blank7({ draw = 1, timed = true })
+    t.score = 20
+    t.tab[1] = { C(9, 2) }
+    t.tab[2] = { C(10, 3) }
+    t:move("tab", 1, 1, "tab", 2)
+    for _ = 1, 20 * 60 do t:tick(1 / 60) end
+    check(t.score == 16, "win7: -2 every 10 seconds (" .. t.score .. ")")
+    t:undo()
+    check(t.score == 16, "win7: undo doesn't give back the time penalties (" .. t.score .. ")")
+
+    -- Hints, best first.
+    local h = blank7()
+    h.waste = { C(1, 2) }
+    h.tab[1] = { C(3, 0, false), C(8, 2) }
+    h.tab[2] = { C(9, 3) }
+    h.stock = { C(5, 1, false) }
+    local list = h:hints()
+    check(#list >= 3, "win7: hints found")
+    check(list[1].from.kind == "waste" and list[1].to.kind == "found", "win7: first hint, the ace up")
+    check(list[2].from.kind == "tab" and list[2].from.index == 1 and list[2].to.index == 2, "win7: then the move that uncovers a card")
+    check(list[#list].from.kind == "stock", "win7: the stock last")
+    local none = blank7()
+    none.tab[1] = { C(13, 0) }
+    check(#none:hints() == 0, "win7: no hints when nothing can move")
+
+    -- Auto-complete.
+    local a = blank7({ draw = 1, timed = true })
+    for s = 0, 3 do for rk = 13, 1, -1 do table.insert(a.tab[s + 1], C(rk, s)) end end
+    a:start(); a.time = 140
+    local steps = 0
+    while a:auto_step() do steps = steps + 1 end
+    check(steps == 52 and a.over, "win7: auto-complete finishes it")
+    check(a.bonus == 5000, "win7: bonus 700000 / 140 s (" .. a.bonus .. ")")
+
+    -- Saving and carrying on.
+    local s = win7.new({ draw = 3, timed = true }):deal(77)
+    s:draw(); s:start(); s.time = 33.5
+    local back = win7.restore(s:save())
+    check(back and back:count() == 52 and back.seed == 77 and back.draw_count == 3, "win7: saved and restored")
+    check(back and #back.waste == #s.waste and back.time == 33.5 and back.moves == s.moves, "win7: the same game")
+    check(win7.restore("rubbish") == nil and win7.restore(nil) == nil, "win7: not a saved game")
+
+    -- Statistics.
+    local st = require("game.win7_stats")
+    st.reset()
+    st.record(true, 500); st.record(true, 900); st.record(false, 10)
+    local v = st.load()
+    check(v.played == 3 and v.won == 2 and v.best_win_streak == 2 and v.streak == -1 and v.high_score == 900, "win7: statistics")
+    local lines = st.lines()
+    check(lines[3] == "Win percentage: 67%" and lines[7] == "Current streak: 1 loss", "win7: statistics shown")
+    st.reset()
+end
+
 -- ---- Undo -----------------------------------------------------------------------------------
 do
     local g = blank({ scoring = "standard", draw = 1 })
@@ -391,6 +485,53 @@ if game and game.current then
     end)
     sp.sfx = real_sfx
     check(ok, "options and sounds: " .. tostring(err))
+end
+
+-- ---- the Windows 7 mode through the game ------------------------------------------------------------
+if game and game.current then
+    local st = require("game.win7_stats")
+    st.reset()
+    local ok, err = pcall(function()
+        -- Options > Scoring > Windows 7.
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("w", false); game.keypressed("return", false)
+        local g = game.current()
+        check(g.win7, "the Windows 7 mode chosen")
+        check((sp.storage_read("options") or ""):find("scoring=win7", 1, true), "and saved")
+        game.keypressed("h", false)       -- a hint
+        game.update(0.5); game.draw()
+        game.update(1.0); game.draw()
+        -- A move, then a new deal: asked first; No keeps the game.
+        game.mousepressed(game.layout().stock.x + 10, game.layout().stock.y + 10, "left", 1)
+        check(g.started, "a move made")
+        game.keypressed("f2", false)
+        game.keypressed("n", false)
+        check(game.current() == g, "No: the same game")
+        game.keypressed("f2", false)
+        game.keypressed("y", false)
+        check(game.current() ~= g, "Yes: a new deal")
+        check(st.load().played == 1 and st.load().won == 0, "the given-up game counted as a loss")
+        -- Leaving saves the game in progress.
+        local g2 = game.current()
+        game.mousepressed(game.layout().stock.x + 10, game.layout().stock.y + 10, "left", 1)
+        game.quit()
+        check(#(sp.storage_read("win7_saved") or "") > 50, "leaving saves the game")
+        local back = require("game.win7").restore(sp.storage_read("win7_saved"))
+        check(back and back.seed == g2.seed and #back.waste == #g2.waste, "the saved game is this one")
+        -- Undo all the way, Restart, Statistics.
+        game.keypressed("backspace", false)
+        check(#g2.waste == 0 and #g2.stock == 24, "undo back to the deal")
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("t", false)   -- Statistics
+        game.draw()
+        game.keypressed("return", false)
+        -- Back to Standard.
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("a", false); game.keypressed("return", false)
+        check(not game.current().win7, "back to the classic rules")
+    end)
+    check(ok, "the Windows 7 mode: " .. tostring(err))
+    st.reset()
+    sp.storage_write("win7_saved", "")
 end
 
 -- ---- a bigger (or smaller) window: the table spreads out evenly -------------------------------------

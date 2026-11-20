@@ -1,6 +1,6 @@
 -- Random play through the game's input (ctest "fuzz"): clicks, drags,
 -- right-clicks, double-clicks, keys, controller buttons and window
--- resizes, 40 a frame,
+-- resizes, 40 a frame, half of it in the Windows 7 mode,
 -- checking after each that no script error happened and no card was lost.
 -- FUZZSEED picks the sequence. Exit is ignored so the run goes the distance.
 
@@ -8,7 +8,7 @@ sp.seed = 5
 dofile(os.getenv("SOLITAIREPACK_SCRIPTS") .. "/main.lua")
 local s = tonumber(os.getenv("FUZZSEED") or "12345")
 local function r(n) s = (s * 1103515245 + 12345) & 0x7FFFFFFF; return (s >> 16) % n end
-local keys = {"left","right","up","down","space","return","escape","backspace","pad a","pad b","pad x","pad y","pad leftshoulder","pad start","pad dpup","pad dpdown","f10","f2","o","c","tab"}
+local keys = {"left","right","up","down","space","return","escape","backspace","pad a","pad b","pad x","pad y","pad leftshoulder","pad start","pad dpup","pad dpdown","f10","f2","o","c","tab","w","h","a","y","n","t"}
 local it, upd, drw = 0, game.update, game.draw
 game.update = function(dt)
   for _ = 1, 40 do
@@ -26,6 +26,13 @@ game.update = function(dt)
       local g = game.current()
       assert(g:count() == 52, "lost cards: " .. g:count())
       if r(300) == 0 then game.keypressed("f2", false) end
+      -- Half the time in the Windows 7 mode: switch through Options every
+      -- 3,000 actions.
+      if it % 3000 == 0 then
+        game.keypressed("escape", false); game.keypressed("escape", false)
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed(game.current().win7 and "a" or "w", false); game.keypressed("return", false)
+      end
       -- Now and then the window changes size (the canvas with it).
       if r(150) == 0 then
         local w, h = 530 + r(1400), 340 + r(800)

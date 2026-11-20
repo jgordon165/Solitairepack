@@ -117,6 +117,27 @@ the scoring or the timer deals again. The status bar shows the score and
 the time. **Deck** picks one of the twelve backs; the robot, the castle, the
 beach and the hand come alive now and then, as in the original.
 
+**Windows 7 mode.** Options > Scoring > **Windows 7** plays Klondike the
+way the Windows Vista / 7 Solitaire does, as a separate mode with its own
+rules (`scripts/game/win7.lua`):
+
+- **Unlimited undo**, back to the deal (Ctrl+Z / Backspace, Game > Undo).
+- **Hints** (H, or Game > Hint): the cards to move light up, then where
+  they go; press again for the next. "No more moves" offers a new deal.
+- **Cards turn up by themselves** when uncovered, and **auto-complete**:
+  once every card is face up and the stock is used, the rest goes up on
+  its own.
+- **Restart this game** (the same deal again) and **Statistics** (games
+  played and won, win percentage, longest winning and losing streaks,
+  current streak, high score; with Reset), in the Game menu.
+- **Your game is saved** when you quit, and offered back next time.
+- Giving up a game in progress (a new deal, a restart, not continuing a
+  saved one) asks first and counts as a loss.
+- The status bar shows the score, the moves and the time as minutes and
+  seconds. Scoring is the Windows standard (below) with unlimited passes
+  through the deck; Draw One/Three and Timed game apply, Keep score
+  doesn't.
+
 **Scoring.** Standard: 10 for each card to a foundation, 5 from the deck to
 a column and for each card turned over, -15 for taking one off a
 foundation, a penalty for each pass through the deck past the free ones,
