@@ -12,6 +12,9 @@ M.defaults = {
     outline = false,          -- Outline dragging
     keep_score = false,       -- Vegas: carry the score over
     back = 54,                -- the back's bitmap id (54-65)
+    auto_flip = true,         -- turn uncovered cards up by themselves (later Windows games)
+    blue_green = true,        -- the blue-green table of the later games, not 3.1's green
+    sound = true,             -- the card sounds
     bank = 0,                 -- the carried-over Vegas score
 }
 

@@ -160,6 +160,23 @@ do
     check(n.score == 0, "no scoring")
 end
 
+-- ---- Auto flip (the later Windows card games) ------------------------------------------------------
+do
+    local g = blank({ scoring = "standard", draw = 1, auto_flip = true })
+    g.tab[1] = { C(5, 0, false), C(9, 2) }
+    g.tab[2] = { C(10, 3) }
+    check(g:move("tab", 1, 2, "tab", 2), "move uncovering a card")
+    check(g.tab[1][1].up and g.flipped == 1, "auto flip turns it up")
+    check(g.score == 5, "and scores it as turned over (" .. g.score .. ")")
+    check(g:undo() and not g.tab[1][1].up and g.score == 0 and #g.tab[1] == 2, "one Undo takes back both")
+    g.auto_flip = false
+    g:move("tab", 1, 2, "tab", 2)
+    check(not g.tab[1][1].up and g.flipped == nil, "without it, the card waits for a click")
+    local f = blank({ scoring = "standard", draw = 1, auto_flip = true })
+    f.tab[3] = { C(7, 1, false), C(1, 3) }
+    check(f:to_foundation("tab", 3) and f.tab[3][1].up, "also when a card goes up to a foundation")
+end
+
 -- ---- Undo -----------------------------------------------------------------------------------
 do
     local g = blank({ scoring = "standard", draw = 1 })
@@ -299,6 +316,54 @@ if game and game.current then
         check(#g.tab[5] == 1, "undo the drag")
     end)
     check(ok, "moving cards with the mouse: " .. tostring(err))
+end
+
+-- ---- the port's own options and the card sounds -----------------------------------------------------
+if game and game.current then
+    local played = {}
+    local real_sfx = sp.sfx
+    sp.sfx = function(name) played[#played + 1] = name end
+    local ok, err = pcall(function()
+        game.keypressed("f2", false)
+        local g = game.current()
+        g.stock, g.waste, g.found = {}, {}, { {}, {}, {}, {} }
+        for i = 1, 7 do g.tab[i] = {} end
+        g.tab[1] = { C(10, 3) }
+        g.tab[2] = { C(4, 0, false), C(9, 2) }
+        g.stock = { C(3, 3, false) }
+        local t = require("game.table")
+        local cards = require("game.cards")
+        local L = game.layout()
+        local cs = t.pile_cards(L, g, "tab", 2)
+        local from = cs[2]
+        local to = t.pile_cards(L, g, "tab", 1)[1]
+        game.mousepressed(from.x + 30, from.y + 8, "left", 1)
+        game.mousemoved(to.x + 30, to.y + 25)
+        game.mousereleased(to.x + 30, to.y + 25, "left")
+        check(#g.tab[1] == 2 and g.tab[2][1].up, "a drag uncovers and turns up the 4C (auto flip on by default)")
+        check(played[1] == "click" and played[2] == "flip", "a click, then the flip (" .. table.concat(played, ",") .. ")")
+        played = {}
+        game.mousepressed(L.stock.x + 20, L.stock.y + 20, "left", 1)
+        check(played[1] == "deal", "turning the stock deals with its own sound")
+        -- Options: the three extra boxes are there; turn the sounds and the
+        -- blue-green table off.
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("c", false)        -- &Card sounds
+        game.keypressed("g", false)        -- Blue-&green table
+        game.keypressed("return", false)   -- OK
+        local s = sp.storage_read("options") or ""
+        check(s:find("sound=0", 1, true) and s:find("blue_green=0", 1, true), "options saved (" .. s:gsub("\n", " ") .. ")")
+        check(cards.TABLE[1] == 0 and cards.TABLE[2] == 128 and cards.TABLE[3] == 0, "the classic green again")
+        played = {}
+        game.mousepressed(L.stock.x + 20, L.stock.y + 20, "left", 1)
+        check(#played == 0, "no sounds once they're off")
+        -- And back on.
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("c", false); game.keypressed("g", false); game.keypressed("return", false)
+        check(cards.TABLE[2] == 112, "the blue-green table back")
+    end)
+    sp.sfx = real_sfx
+    check(ok, "options and sounds: " .. tostring(err))
 end
 
 -- ---- a bigger (or smaller) window: the table spreads out evenly -------------------------------------

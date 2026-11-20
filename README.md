@@ -90,7 +90,18 @@ Deck..., Options..., Exit. Help: the rules and the keys, About. With
 status bar's text come from its own resources.
 
 **Options.** Draw One or Draw Three; Standard, Vegas or no scoring; Timed
-game; Status bar; Outline dragging; Keep score (Vegas). Changing the draw,
+game; Status bar; Outline dragging; Keep score (Vegas). Below the
+original's options are three from the later Windows card games (Spider
+Solitaire), all on to start with:
+
+- **Flip cards automatically:** when a move uncovers a face-down card in a
+  column, it turns up by itself (scored as if clicked; one Undo takes back
+  both).
+- **Blue-green table:** the later games' blue-green instead of 3.1's green.
+- **Card sounds:** a click when a card is laid down, a swish when one turns
+  over, a riffle from the stock. They're the port's own, synthesized when
+  it starts; the original Solitaire is silent.
+ Changing the draw,
 the scoring or the timer deals again. The status bar shows the score and
 the time. **Deck** picks one of the twelve backs; the robot, the castle, the
 beach and the hand come alive now and then, as in the original.
@@ -131,7 +142,8 @@ menu and dialog in SOL.EXE):
 SOLITAIREPACK_DATA=/path/to/WIN31 cmake -S . -B build && ctest --test-dir build
 ```
 
-`--seed N` deals the same games every run; `--frames N --screenshot out.bmp`
+`solitairepack_audio_tests --wav <folder>` writes the card sounds out as
+.wav files to listen to. `--seed N` deals the same games every run; `--frames N --screenshot out.bmp`
 runs headless and saves the last frame.
 
 ## CI and releases

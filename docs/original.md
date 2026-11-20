@@ -99,3 +99,11 @@ Then "Deal again?".
 **(check)** The port shuffles with its own seeded generator (Fisher-Yates
 on the C library's example `rand`) so tests and `--seed` are repeatable.
 SOL.EXE's own shuffle (it seeds from the clock) is still to be read.
+
+## The port's own additions
+
+From the later Windows card games, off the original's path (Options, below
+the original's): Flip cards automatically, the Blue-green table (RGB 0,
+112, 104) and Card sounds (synthesized in `src/audio.cpp`: no samples are
+taken from any Windows game). The window can also be resized, with the
+table growing to fill it (see Table).

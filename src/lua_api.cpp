@@ -86,6 +86,8 @@ int l_resources(lua_State* L) {
 //   round: clear the corner pixels, as a card's corners show the table
 //   clear_white: white pixels transparent (a monochrome bitmap the original
 //     draws with the table as its background, such as the empty-pile pattern)
+//   clear_color: { r, g, b }: pixels of that colour transparent (the X and O
+//     marks are drawn on the original's table green)
 //   black_frame: the outermost ring of pixels black (the red cards are
 //     monochrome bitmaps drawn in red; the original draws their edge black)
 int l_bitmap(lua_State* L) {
@@ -97,18 +99,32 @@ int l_bitmap(lua_State* L) {
     if (!r) { lua_pushnil(L); lua_pushstring(L, "no such bitmap"); return 2; }
     try {
         auto img = tp::decodeDib(e->read(*r));
-        bool round = false, clearWhite = false, blackFrame = false;
+        bool round = false, clearWhite = false, blackFrame = false, clearColour = false;
+        uint32_t clearRgb = 0;
         if (lua_istable(L, 3)) {
             lua_getfield(L, 3, "round"); round = lua_toboolean(L, -1);
             lua_getfield(L, 3, "clear_white"); clearWhite = lua_toboolean(L, -1);
             lua_getfield(L, 3, "black_frame"); blackFrame = lua_toboolean(L, -1);
             lua_pop(L, 3);
+            lua_getfield(L, 3, "clear_color");
+            if (lua_istable(L, -1)) {
+                uint8_t c[3] = {0, 0, 0};
+                for (int k = 0; k < 3; ++k) {
+                    lua_rawgeti(L, -1, k + 1);
+                    c[k] = static_cast<uint8_t>(luaL_optinteger(L, -1, 0));
+                    lua_pop(L, 1);
+                }
+                clearColour = true;
+                clearRgb = tp::packRGBA(c[0], c[1], c[2]) & 0x00FFFFFFu;
+            }
+            lua_pop(L, 1);
         } else {
             round = lua_toboolean(L, 3);
         }
-        if (clearWhite)
-            for (auto& px : img.rgba)
-                if ((px & 0x00FFFFFFu) == 0x00FFFFFFu) px = 0;
+        for (auto& px : img.rgba) {
+            const uint32_t rgb = px & 0x00FFFFFFu;
+            if ((clearWhite && rgb == 0x00FFFFFFu) || (clearColour && rgb == clearRgb)) px = 0;
+        }
         if (blackFrame && img.width > 2 && img.height > 2) {
             const uint32_t white = tp::packRGBA(255, 255, 255), black = tp::packRGBA(0, 0, 0);
             auto edge = [&](int x, int y) {
@@ -309,6 +325,18 @@ int l_warp_mouse(lua_State* L) {
     return 0;
 }
 
+// sp.sfx(name [, gain]): plays one of the port's sounds ("click", "flip",
+// "deal"); sp.sfx_volume(v) sets their volume, 0-1.
+int l_sfx(lua_State* L) {
+    eng(L)->audio.play(luaL_checkstring(L, 1), static_cast<float>(luaL_optnumber(L, 2, 1.0)));
+    return 0;
+}
+
+int l_sfx_volume(lua_State* L) {
+    eng(L)->audio.setVolume(static_cast<float>(luaL_checknumber(L, 1)));
+    return 0;
+}
+
 int l_key_down(lua_State* L) {
     lua_pushboolean(L, input::isDown(luaL_checkstring(L, 1)));
     return 1;
@@ -359,6 +387,7 @@ void registerLuaApi(lua_State* L, Engine* e) {
         {"key_down", l_key_down}, {"ticks", l_ticks}, {"title", l_title},
         {"quit", l_quit}, {"log", l_log},
         {"platform", l_platform}, {"base_path", l_base_path}, {"draw_flip", l_draw_flip}, {"warp_mouse", l_warp_mouse},
+        {"sfx", l_sfx}, {"sfx_volume", l_sfx_volume},
         {nullptr, nullptr},
     };
     lua_newtable(L);

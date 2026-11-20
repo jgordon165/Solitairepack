@@ -1,6 +1,7 @@
 // State shared by the C++ host and the Lua API.
 #pragma once
 
+#include "audio.h"
 #include "storage.h"
 #include "formats/ne.h"
 #include "video.h"
@@ -10,6 +11,7 @@
 
 struct Engine {
     Video video;
+    Audio audio;
     std::string dataArg;              // --data: folder holding SOL.EXE (or SOL.EX_), or the file itself
     std::optional<tp::NeFile> sol;    // SOL.EXE: menus, dialogs, strings, and in 3.0/3.1 the cards
     std::optional<tp::NeFile> cards;  // CARDS.DLL (16-bit), used for the cards only without SOL.EXE

@@ -71,6 +71,7 @@ add_executable(solitairepack
     src/video.cpp
     src/input.cpp
     src/storage.cpp
+    src/audio.cpp
     src/lua_api.cpp)
 target_link_libraries(solitairepack PRIVATE solitairepack_formats SDL2::SDL2-static SDL2::SDL2main lua_static)
 solitairepack_warnings(solitairepack)
@@ -101,6 +102,13 @@ if(SOLITAIREPACK_TESTS)
     target_link_libraries(solitairepack_tests PRIVATE solitairepack_formats)
     solitairepack_warnings(solitairepack_tests)
     add_test(NAME formats COMMAND solitairepack_tests)
+
+    # The synthesized card sounds.
+    add_executable(solitairepack_audio_tests tests/test_audio.cpp src/audio.cpp)
+    target_include_directories(solitairepack_audio_tests PRIVATE src)
+    target_link_libraries(solitairepack_audio_tests PRIVATE SDL2::SDL2-static SDL2::SDL2main)
+    solitairepack_warnings(solitairepack_audio_tests)
+    add_test(NAME audio COMMAND solitairepack_audio_tests)
     if(DEFINED ENV{SOLITAIREPACK_DATA})
         set_tests_properties(formats PROPERTIES ENVIRONMENT "SOLITAIREPACK_DATA=$ENV{SOLITAIREPACK_DATA}")
     endif()

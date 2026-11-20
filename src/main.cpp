@@ -222,6 +222,8 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0) eng.audio.open();
+    else std::fprintf(stderr, "no sound: %s\n", SDL_GetError());
     if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0)
         std::fprintf(stderr, "controllers unavailable: %s\n", SDL_GetError());
     // 640 x 440 (unless --size): the original maximized on a 640 x 480 screen. The window
@@ -334,6 +336,7 @@ int main(int argc, char** argv) {
     }
 
     lua_close(L);
+    eng.audio.close();
     SDL_Quit();
     if (!ok) return 1;
     return eng.exitCode;
