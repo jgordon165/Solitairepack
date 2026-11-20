@@ -18,20 +18,21 @@ local function static(x, y, w, h, text, align)
 end
 
 -- Options: Draw (One / Three), Scoring (Standard / Vegas / None), Timed
--- game, Status bar, Outline dragging, Keep score.
+-- game, Status bar, Outline dragging, Keep score; the texts (and their
+-- underlined letters) as in SOL.EXE's.
 M.options = {
     caption = "Options", w = 172, h = 108,
     controls = {
-        button(6, 4, 74, 40, 100, "Draw", BS_GROUPBOX),
+        button(6, 4, 74, 40, 100, "&Draw", BS_GROUPBOX),
         button(12, 16, 64, 12, 101, "Draw &One", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP),
-        button(12, 28, 64, 12, 102, "Draw T&hree", BS_AUTORADIOBUTTON),
-        button(88, 4, 78, 52, 103, "Scoring", BS_GROUPBOX),
-        button(94, 16, 66, 12, 104, "&Standard", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP),
+        button(12, 28, 64, 12, 102, "Draw &Three", BS_AUTORADIOBUTTON),
+        button(88, 4, 78, 52, 103, "&Scoring", BS_GROUPBOX),
+        button(94, 16, 66, 12, 104, "St&andard", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP),
         button(94, 28, 66, 12, 105, "&Vegas", BS_AUTORADIOBUTTON),
         button(94, 40, 66, 12, 106, "&None", BS_AUTORADIOBUTTON),
-        button(6, 50, 78, 12, 107, "&Timed game", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP),
+        button(6, 50, 78, 12, 107, "T&imed game", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP),
         button(6, 62, 78, 12, 108, "Status &bar", BS_AUTOCHECKBOX | WS_TABSTOP),
-        button(6, 74, 82, 12, 109, "O&utline dragging", BS_AUTOCHECKBOX | WS_TABSTOP),
+        button(6, 74, 82, 12, 109, "Out&line dragging", BS_AUTOCHECKBOX | WS_TABSTOP),
         button(94, 62, 72, 12, 110, "&Keep score", BS_AUTOCHECKBOX | WS_TABSTOP),
         button(32, 90, 40, 14, 1, "OK", BS_DEFPUSHBUTTON | WS_GROUP | WS_TABSTOP),
         button(100, 90, 40, 14, 2, "Cancel", WS_TABSTOP),
@@ -86,7 +87,8 @@ end
 -- The port's own options, added below the original's in the Options
 -- dialog (SOL.EXE's or the stand-in): a copy of t with three more check
 -- boxes and the OK / Cancel row moved down to make room.
-M.EXTRA_OPTIONS = { "&Flip cards automatically", "Blue-&green table", "&Card sounds", "S&mooth cards" }
+M.EXTRA_OPTIONS = { "&Flip cards automatically", "Blue-&green table", "&Card sounds", "S&mooth cards",
+                    "Satin tabl&e", "Card s&hadows" }
 function M.with_extras(t)
     local out = { caption = t.caption, w = t.w, h = t.h, x = t.x, y = t.y, style = t.style, controls = {} }
     local push_y, left = nil, nil

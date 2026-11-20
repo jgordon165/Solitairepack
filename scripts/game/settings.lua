@@ -16,6 +16,8 @@ M.defaults = {
     blue_green = true,        -- the blue-green table of the later games, not 3.1's green
     sound = true,             -- the card sounds
     smooth = true,            -- the cards smoothed for the screen, not the original pixels
+    satin = true,             -- a grainy satin over the table colour
+    shadows = true,           -- the cards cast soft shadows
     bank = 0,                 -- the carried-over Vegas score
 }
 

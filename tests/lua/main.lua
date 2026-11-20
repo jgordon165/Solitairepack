@@ -371,6 +371,23 @@ if game and game.current then
         game.keypressed("m", false); game.keypressed("return", false)
         check(cards.smooth == true, "and smoothed again")
         game.draw()
+        -- Satin and shadows off, then on.
+        local decor = require("game.decor")
+        check(decor.satin and decor.shadows, "satin and shadows on to start with")
+        for _, k in pairs(decor.KINDS) do
+            local _, _, _, m = sp.texture("shadow", { w = 71, h = 96, blur = k.blur })
+            check(math.max(k.dx, k.dy) + m <= decor.MAX_REACH, "no shadow reaches more than 25 pixels")
+        end
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("e", false); game.keypressed("h", false); game.keypressed("return", false)
+        check(not decor.satin and not decor.shadows, "satin and shadows off")
+        local s2 = sp.storage_read("options") or ""
+        check(s2:find("satin=0", 1, true) and s2:find("shadows=0", 1, true), "and saved")
+        game.draw()
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("e", false); game.keypressed("h", false); game.keypressed("return", false)
+        check(decor.satin and decor.shadows, "and on again")
+        game.draw()
     end)
     sp.sfx = real_sfx
     check(ok, "options and sounds: " .. tostring(err))

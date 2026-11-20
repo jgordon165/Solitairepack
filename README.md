@@ -103,6 +103,12 @@ from the later Windows card games (Spider Solitaire):
   screen, and the zoomed picture is filtered to the window, so at zooms
   like 1.5x the pips and letters come out even and smooth. Turn it off for
   the original's sharp pixels.
+- **Satin table:** a grainy satin over the table colour (only the table,
+  never the cards): fine grain and short fibres with a soft sheen that
+  only lightens.
+- **Card shadows:** the cards cast soft shadows down and to the right,
+  reaching no more than 25 pixels, with a faint halo where cards overlap;
+  cards you drag cast a deeper one, as if lifted.
 - **Card sounds:** a click when a card is laid down, a swish when one turns
   over, a riffle from the stock. They're the port's own, synthesized when
   it starts; the original Solitaire is silent.
