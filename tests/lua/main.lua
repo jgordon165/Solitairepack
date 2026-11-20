@@ -301,6 +301,45 @@ if game and game.current then
     check(ok, "moving cards with the mouse: " .. tostring(err))
 end
 
+-- ---- a bigger (or smaller) window: the table spreads out evenly -------------------------------------
+if game and game.resize then
+    local cards = require("game.cards")
+    local ok, err = pcall(function()
+        local function check_spread(w, h)
+            game.resize(w, h)
+            game.update(1 / 60); game.draw()
+            local L = game.layout()
+            local margin = L.col_x[1] - 0
+            local gap = L.col_x[2] - (L.col_x[1] + cards.W)
+            check(L.area.w == w, "the table is as wide as the window (" .. w .. ")")
+            check(L.stock.y == L.found[1].y and L.stock.y < L.tab_y, "the stock and foundations along the top")
+            check(margin <= 18, "the stock stays in the top left corner (" .. margin .. ")")
+            if w <= 640 then check(math.abs(gap - margin) <= 1, "up to 640 wide, margins = gaps, as the original") end
+            check(L.stock.x == L.col_x[1], "the stock heads the first column")
+            check(L.found[4].x == L.col_x[7], "the last foundation heads the last column")
+            local right = w - (L.found[4].x + cards.W)
+            check(math.abs(right - margin) <= 1, "the foundations stay in the top right corner (" ..
+                  w .. ": " .. margin .. " / " .. right .. ")")
+            for i = 2, 7 do
+                local between = L.col_x[i] - (L.col_x[i - 1] + cards.W)
+                check(math.abs(between - gap) <= 1, "even gaps at " .. w .. " (" .. between .. " vs " .. gap .. ")")
+            end
+            -- The columns may run down to the new bottom edge.
+            check(L.area.y + L.area.h <= h, "the table fits the height")
+        end
+        check_spread(1280, 720)
+        check_spread(1920, 1080)
+        check_spread(530, 340)
+        -- A dialog open across a resize stays centred.
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.resize(1000, 700)
+        game.draw()
+        game.keypressed("escape", false)
+        check_spread(640, 440)
+    end)
+    check(ok, "resizing: " .. tostring(err))
+end
+
 sp.log(string.format("lua: %d checks, %d failed", checks, failures))
 game = game or {}
 local quit_code = failures > 0 and 1 or 0

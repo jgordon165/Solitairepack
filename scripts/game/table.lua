@@ -1,7 +1,6 @@
 -- Where everything sits on the table, drawing it, and finding what's under
 -- the pointer. The stock, the waste and the four foundations along the top,
--- the seven columns below, spread evenly across the window as the original
--- does (docs/original.md).
+-- the seven columns below, spread evenly across the window (docs/original.md).
 
 local cards = require("game.cards")
 
@@ -12,14 +11,22 @@ M.FACE_UP_DY = 15      -- and of a face-up one
 M.FAN_DX = 12          -- Draw Three: the waste's top cards fanned to the right
 M.STACK_EVERY = 10     -- the stock and waste get thicker by a pixel every 10 cards
 
+-- The margin at each side, at most: what the original's even spacing gives
+-- at 640 pixels wide. Up to that width the margins and the gaps between the
+-- columns are equal, as in the original; wider, the stock stays this close
+-- to the top left corner, the last foundation to the top right, and the
+-- columns spread out evenly between them.
+M.MAX_MARGIN = 18
+
 -- area: the table's rectangle on the canvas (between the menu and status bars).
 function M.layout(area)
     local L = { area = area }
     local W, H = cards.W, cards.H
-    local gap = (area.w - 7 * W) / 8
-    L.gap = gap
+    local margin = math.min((area.w - 7 * W) / 8, M.MAX_MARGIN)
+    local gap = (area.w - 2 * margin - 7 * W) / 6
+    L.margin, L.gap = margin, gap
     L.col_x = {}
-    for i = 1, 7 do L.col_x[i] = area.x + math.floor(gap + (i - 1) * (W + gap)) end
+    for i = 1, 7 do L.col_x[i] = area.x + math.floor(margin + (i - 1) * (W + gap) + 0.5) end
     L.top_y = area.y + 6
     L.tab_y = L.top_y + H + 6
     L.stock = { x = L.col_x[1], y = L.top_y }

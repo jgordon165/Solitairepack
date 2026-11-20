@@ -38,7 +38,10 @@ Video::~Video() {
     if (win_) SDL_DestroyWindow(win_);
 }
 
-bool Video::open(const std::string& title, int canvasW, int canvasH, double scale) {
+bool Video::open(const std::string& title, int canvasW, int canvasH, double scale, int minW, int minH) {
+    scale_ = scale;
+    minW_ = minW;
+    minH_ = minH;
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");  // sharp pixels, like the original zoomed
     win_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                             static_cast<int>(canvasW * scale), static_cast<int>(canvasH * scale), SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
@@ -47,8 +50,28 @@ bool Video::open(const std::string& title, int canvasW, int canvasH, double scal
     if (!ren_) ren_ = SDL_CreateRenderer(win_, -1, SDL_RENDERER_SOFTWARE);
     if (!ren_) { std::fprintf(stderr, "renderer: %s\n", SDL_GetError()); return false; }
     SDL_SetRenderDrawBlendMode(ren_, SDL_BLENDMODE_BLEND);
+    SDL_SetWindowMinimumSize(win_, static_cast<int>(minW * scale), static_cast<int>(minH * scale));
     setCanvas(canvasW, canvasH);
+    fitCanvas();
     return true;
+}
+
+bool Video::fitCanvas() {
+    // In window points, not pixels: on a high-DPI display the zoom stays
+    // what it looks like, and compose() fills the extra pixels.
+    int ww = 0, wh = 0;
+    SDL_GetWindowSize(win_, &ww, &wh);
+    if (ww <= 0 || wh <= 0) return false;
+    const int w = std::max(minW_, static_cast<int>(ww / scale_));
+    const int h = std::max(minH_, static_cast<int>(wh / scale_));
+    if (w == cw_ && h == ch_) return false;
+    setCanvas(w, h);
+    return true;
+}
+
+void Video::toggleFullscreen() {
+    const bool full = SDL_GetWindowFlags(win_) & SDL_WINDOW_FULLSCREEN_DESKTOP;
+    SDL_SetWindowFullscreen(win_, full ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 }
 
 void Video::setTitle(const std::string& t) { if (win_) SDL_SetWindowTitle(win_, t.c_str()); }
@@ -136,7 +159,8 @@ void Video::draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, int
     SDL_RenderCopyEx(ren_, tex_[handle], &src, &dst, 0.0, nullptr, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 }
 
-// The canvas, scaled to fit the window with its aspect kept (letterboxed).
+// The canvas, scaled to fit the window with its aspect kept (letterboxed;
+// with the canvas fitted to the window, only by a fraction of a pixel).
 void Video::compose() {
     SDL_Rect clip{};
     SDL_RenderGetClipRect(ren_, &clip);

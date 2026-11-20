@@ -1,5 +1,6 @@
 -- Random play through the game's input (ctest "fuzz"): clicks, drags,
--- right-clicks, double-clicks, keys and controller buttons, 40 a frame,
+-- right-clicks, double-clicks, keys, controller buttons and window
+-- resizes, 40 a frame,
 -- checking after each that no script error happened and no card was lost.
 -- FUZZSEED picks the sequence. Exit is ignored so the run goes the distance.
 
@@ -25,6 +26,12 @@ game.update = function(dt)
       local g = game.current()
       assert(g:count() == 52, "lost cards: " .. g:count())
       if r(300) == 0 then game.keypressed("f2", false) end
+      -- Now and then the window changes size (the canvas with it).
+      if r(150) == 0 then
+        local w, h = 530 + r(1400), 340 + r(800)
+        sp.canvas(w, h)
+        game.resize(w, h)
+      end
     end)
     if not ok then sp.log("iter " .. it .. ": " .. tostring(err)); sp.quit(1); return end
   end

@@ -14,6 +14,7 @@ local templates = require("ui.templates")
 
 game = {}
 
+-- The canvas: it follows the window's size (game.resize), 640 x 440 to start.
 local W, H = 640, 440
 local STATUS_H = 19
 
@@ -59,6 +60,8 @@ end
 
 local function relayout() L = table_.layout(area()) end
 
+local function screen() return { x = 0, y = 0, w = W, h = H } end
+
 local function new_seed()
     deal_count = deal_count + 1
     if sp.seed then return sp.seed + deal_count - 1 end
@@ -85,7 +88,7 @@ end
 -- ---- dialogs ------------------------------------------------------------------
 
 local function message(caption, lines, buttons, onclose)
-    modal = Dialog.new({ template = templates.message(caption, lines, buttons), area = { x = 0, y = 0, w = W, h = H },
+    modal = Dialog.new({ template = templates.message(caption, lines, buttons), area = screen(),
                          onclose = function(d, id, key) modal = nil; if onclose then onclose(key) end end })
 end
 
@@ -111,7 +114,7 @@ local function open_options()
         return e and d.values[e.c.id]
     end
     modal = Dialog.new({
-        template = t, area = { x = 0, y = 0, w = W, h = H }, values = values,
+        template = t, area = screen(), values = values,
         enabled = function(c, key)
             if key == "keep score" then return modal == nil or vegas_chosen(modal) end
             return true
@@ -149,7 +152,7 @@ local function open_deck()
     local selected
     for _, c in ipairs(t.controls) do if back_of(c) == S.back then selected = c.id end end
     modal = Dialog.new({
-        template = t, area = { x = 0, y = 0, w = W, h = H }, selected = selected,
+        template = t, area = screen(), selected = selected,
         draw_owner = function(c, x, y, w, h, sel, focus)
             local id = back_of(c)
             if not id then return end
@@ -251,7 +254,7 @@ function game.layout() return L end
 -- ---- startup ----------------------------------------------------------------------
 
 function game.load()
-    sp.canvas(W, H)
+    W, H = sp.canvas()
     sp.title("Solitaire")
     S = settings.load()
     cards.load()
@@ -266,6 +269,20 @@ function game.load()
     game.deal()
     local has, err = sp.has_data()
     if not has then sp.log(err) end
+end
+
+-- The window was resized (or went full screen): the table takes the new
+-- size. The piles spread out evenly across it, the stock staying top left
+-- and the foundations top right (table.lua); open dialogs re-centre.
+function game.resize(w, h)
+    W, H = w, h
+    relayout()
+    bar.width = W
+    drag = nil
+    if modal then modal:center(screen()) end
+    -- The canvas is new and blank, so the cascade's trails are gone: skip
+    -- to its end, "Deal Again?".
+    if win then end_win() end
 end
 
 -- ---- dragging -------------------------------------------------------------------------

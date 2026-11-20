@@ -6,7 +6,7 @@
 //
 // Usage: solitairepack --data <folder with SOL.EXE, or a Windows 3.1 setup
 //                              disk with SOL.EX_>
-//                      [--scale N] [--scripts <dir>] [--seed N]
+//                      [--scale N] [--size WxH] [--scripts <dir>] [--seed N]
 //                      [--frames N [--screenshot out.bmp]]   (headless testing)
 
 #include "engine.h"
@@ -151,6 +151,7 @@ int main(int argc, char** argv) {
     long maxFrames = -1;
     std::string shot;
     lua_Integer seed = -1;
+    int startW = 640, startH = 440;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -161,6 +162,14 @@ int main(int argc, char** argv) {
         else if (a == "--frames")  maxFrames = std::atol(next().c_str());
         else if (a == "--screenshot") shot = next();
         else if (a == "--seed")    seed = std::atoll(next().c_str());
+        else if (a == "--size") {   // the table's starting size, e.g. 1280x720
+            const std::string v = next();
+            const auto x = v.find_first_of("xX");
+            if (x != std::string::npos) {
+                startW = std::max(530, std::atoi(v.substr(0, x).c_str()));
+                startH = std::max(340, std::atoi(v.substr(x + 1).c_str()));
+            }
+        }
         else if (a == "--help" || a == "-h") {
             std::printf("solitairepack --data <folder with your SOL.EXE, or a Windows 3.1 setup disk> [--scale N] [--seed N]\n");
             return 0;
@@ -215,7 +224,10 @@ int main(int argc, char** argv) {
     }
     if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0)
         std::fprintf(stderr, "controllers unavailable: %s\n", SDL_GetError());
-    if (!eng.video.open("Solitaire", 640, 440, scale)) { SDL_Quit(); return 1; }
+    // 640 x 440 (unless --size): the original maximized on a 640 x 480 screen. The window
+    // can be resized (or made full screen with F11) down to 7 columns of
+    // cards; the table grows and shrinks with it.
+    if (!eng.video.open("Solitaire", startW, startH, scale, 530, 340)) { SDL_Quit(); return 1; }
 
     // Options and the Vegas bank persist, except in headless (test) runs.
     const bool headless = maxFrames >= 0;
@@ -248,7 +260,16 @@ int main(int argc, char** argv) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) eng.quit = true;
-            else if (ev.type == SDL_KEYDOWN) {
+            else if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                // game.resize(w, h): the canvas now has this size.
+                if (eng.video.fitCanvas()) {
+                    lua_pushinteger(L, eng.video.canvasW());
+                    lua_pushinteger(L, eng.video.canvasH());
+                    ok = callLua(L, "resize", 2) && ok;
+                }
+            } else if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_F11 && !ev.key.repeat) {
+                eng.video.toggleFullscreen();
+            } else if (ev.type == SDL_KEYDOWN) {
                 lua_pushstring(L, input::keyName(ev.key.keysym.sym).c_str());
                 lua_pushboolean(L, ev.key.repeat != 0);
                 ok = callLua(L, "keypressed", 2) && ok;
