@@ -14,6 +14,17 @@ local templates = require("ui.templates")
 local decor = require("game.decor")
 local win7 = require("game.win7")
 local win7_stats = require("game.win7_stats")
+local klondike = require("game.klondike")
+
+-- The two modes built on the later Windows games (undo, hints, statistics,
+-- saving): Windows 7, and Klondike with its 1, 2 or 4 suits. Each keeps its
+-- own statistics (Klondike's per number of suits) and its own saved game.
+local function modern_mode(scoring) return scoring == "win7" or scoring == "klondike" end
+local function stats_key(game_)
+    if game_ and game_.scoring == "klondike" then return klondike.stats_key(game_.suits) end
+    return "win7_stats"
+end
+local function save_key(scoring) return scoring == "klondike" and klondike.SAVE_KEY or "win7_saved" end
 
 game = {}
 
@@ -126,8 +137,8 @@ end
 -- A Windows 7 game given up (a new deal, a restart, another mode) counts
 -- as a loss once a move has been made.
 local function give_up_win7()
-    if g and g.win7 and g.started and not g.over then win7_stats.record(false, g.score) end
-    sp.storage_write("win7_saved", "")
+    if g and g.win7 and g.started and not g.over then win7_stats.record(false, g.score, stats_key(g)) end
+    if g and g.win7 then sp.storage_write(save_key(g.scoring), "") end
 end
 
 local hint                 -- the hint showing: { move, t }, or nil
@@ -153,10 +164,15 @@ function game.deal(same_deal)
     -- In Vegas with Keep score, the bank carries what this deal left.
     if g and g.scoring == "vegas" and S.keep_score then S.bank = g.score end
     give_up_win7()
-    if S.scoring == "win7" then
-        -- The Windows 7 mode: its own rules (game/win7.lua).
+    if modern_mode(S.scoring) then
+        -- The Windows 7 mode (game/win7.lua) or the Klondike mode built on
+        -- it (game/klondike.lua): their own rules.
         local seed = same_deal and g and g.seed or new_seed()
-        g = win7.new({ draw = S.draw, timed = S.timed })
+        if S.scoring == "klondike" then
+            g = klondike.new({ draw = S.draw, timed = S.timed, suits = S.suits })
+        else
+            g = win7.new({ draw = S.draw, timed = S.timed })
+        end
         with_sounds(g)
         g:deal(seed)
     else
@@ -179,11 +195,12 @@ end
 local option_keys = {
     ["draw one"] = { "draw", 1 }, ["draw three"] = { "draw", 3 },
     ["standard"] = { "scoring", "standard" }, ["vegas"] = { "scoring", "vegas" }, ["none"] = { "scoring", "none" },
-    ["windows 7"] = { "scoring", "win7" },
+    ["windows 7"] = { "scoring", "win7" }, ["klondike"] = { "scoring", "klondike" },
+    ["1 suit"] = { "suits", 1 }, ["2 suits"] = { "suits", 2 }, ["4 suits"] = { "suits", 4 },
     ["timed game"] = { "timed", true }, ["status bar"] = { "status", true },
     ["outline dragging"] = { "outline", true }, ["keep score"] = { "keep_score", true },
     -- The port's own, from the later Windows card games (templates.with_extras).
-    ["flip cards automatically"] = { "auto_flip", true }, ["blue-green table"] = { "blue_green", true },
+    ["auto-flip cards"] = { "auto_flip", true }, ["blue-green table"] = { "blue_green", true },
     ["card sounds"] = { "sound", true }, ["smooth cards"] = { "smooth", true },
     ["satin table"] = { "satin", true }, ["card shadows"] = { "shadows", true },
 }
@@ -207,16 +224,24 @@ local function open_options()
         enabled = function(c, key)
             if key == "keep score" then return modal == nil or vegas_chosen(modal) end
             -- The Windows 7 mode always flips uncovered cards.
-            if key == "flip cards automatically" and modal then
-                local e = modal:find("windows 7")
-                return not (e and modal.values[e.c.id])
+            local function chosen(k)
+                local e = modal and modal:find(k)
+                return e and modal.values[e.c.id]
+            end
+            -- The Windows 7 and Klondike modes always flip uncovered cards;
+            -- the suits are the Klondike mode's.
+            if key == "auto-flip cards" and modal then
+                return not (chosen("windows 7") or chosen("klondike"))
+            end
+            if (key == "1 suit" or key == "2 suits" or key == "4 suits") and modal then
+                return chosen("klondike") and true or false
             end
             return true
         end,
         onclose = function(d, id, key)
             modal = nil
             if key ~= "ok" then return end
-            local old = { draw = S.draw, scoring = S.scoring, timed = S.timed }
+            local old = { draw = S.draw, scoring = S.scoring, timed = S.timed, suits = S.suits }
             for _, e in ipairs(d.controls) do
                 local k = option_keys[e.key]
                 if k and d.values[e.c.id] ~= nil then
@@ -237,7 +262,8 @@ local function open_options()
             save()
             -- Changing how it's played or scored starts a new game, as in the original.
             if S.scoring ~= old.scoring then make_bar() end
-            if S.draw ~= old.draw or S.scoring ~= old.scoring or S.timed ~= old.timed then
+            local suits_changed = S.scoring == "klondike" and S.suits ~= old.suits
+            if S.draw ~= old.draw or S.scoring ~= old.scoring or S.timed ~= old.timed or suits_changed then
                 if S.scoring == "vegas" and old.scoring ~= "vegas" then S.bank = 0 end
                 game.deal()
             end
@@ -299,8 +325,8 @@ end
 -- Leaving: a Windows 7 game in progress is saved, to carry on next time
 -- (as the Vista / 7 game does).
 function game.quit()
-    if g and g.win7 and g.started and not g.over then sp.storage_write("win7_saved", g:save())
-    elseif g and g.win7 then sp.storage_write("win7_saved", "") end
+    if g and g.win7 and g.started and not g.over then sp.storage_write(save_key(g.scoring), g:save())
+    elseif g and g.win7 then sp.storage_write(save_key(g.scoring), "") end
     save()
 end
 
@@ -336,11 +362,14 @@ local function show_hint()
 end
 
 local function show_stats()
-    local lines = win7_stats.lines()
-    message("Statistics", lines, { "OK", "&Reset" }, function(key)
+    local key_ = stats_key(g)
+    local lines = win7_stats.lines(key_)
+    local caption = "Statistics"
+    if g.scoring == "klondike" then caption = "Statistics: Klondike, " .. klondike.suits_name(g.suits) end
+    message(caption, lines, { "OK", "&Reset" }, function(key)
         if key == "reset" then
             message("Statistics", { "Reset the statistics?" }, { "&Yes", "&No" }, function(k)
-                if k == "yes" then win7_stats.reset() end
+                if k == "yes" then win7_stats.reset(key_) end
             end)
         end
     end)
@@ -383,7 +412,7 @@ local shortcuts = { deal = "F2", undo = "Ctrl+Z", contents = "F1" }
 local WIN7_MENU = { "&Hint\tH", "&Restart this game", "S&tatistics..." }
 function make_bar()
     bar = Bar.new({ width = W, on_command = run, enabled = enabled,
-                    extra = S.scoring == "win7" and WIN7_MENU or nil,
+                    extra = modern_mode(S.scoring) and WIN7_MENU or nil,
                     shortcut = function(name) return not bar.from_sol and shortcuts[name] or nil end })
 end
 
@@ -397,8 +426,8 @@ local function check_win()
         win.fresh = true   -- draw the whole table once more, then let it trail
         hint = nil
         if g.win7 then
-            win7_stats.record(true, g.score)
-            sp.storage_write("win7_saved", "")
+            win7_stats.record(true, g.score, stats_key(g))
+            sp.storage_write(save_key(g.scoring), "")
         end
         save()
     end
@@ -437,17 +466,18 @@ function game.load()
     make_bar()
     game.deal()
     -- A Windows 7 game saved last time: carry on with it?
-    if S.scoring == "win7" then
-        local saved = win7.restore(sp.storage_read("win7_saved"))
+    if modern_mode(S.scoring) then
+        local key_ = save_key(S.scoring)
+        local saved = (S.scoring == "klondike" and klondike or win7).restore(sp.storage_read(key_))
         if saved then
             message("Solitaire", { "Do you want to continue your saved game?" }, { "&Yes", "&No" }, function(key)
                 if key == "yes" then
                     g = with_sounds(saved)
                     fresh_game()
                 else
-                    win7_stats.record(false, saved.score)
+                    win7_stats.record(false, saved.score, stats_key(saved))
                 end
-                sp.storage_write("win7_saved", "")
+                sp.storage_write(key_, "")
             end)
         end
     end
@@ -759,7 +789,8 @@ local function draw_status()
     elseif g.scoring == "standard" then
         parts[#parts + 1] = score_label .. g.score
     end
-    if g.scoring == "win7" then
+    if g.win7 then
+        if g.scoring == "klondike" then parts[#parts + 1] = klondike.suits_name(g.suits) end
         parts[#parts + 1] = score_label .. g.score
         parts[#parts + 1] = "Moves: " .. g.moves
     end

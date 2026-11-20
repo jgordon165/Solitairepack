@@ -87,21 +87,22 @@ end
 -- The port's own options, added below the original's in the Options
 -- dialog (SOL.EXE's or the stand-in): a copy of t with three more check
 -- boxes and the OK / Cancel row moved down to make room.
-M.EXTRA_OPTIONS = { "&Flip cards automatically", "Blue-&green table", "&Card sounds", "S&mooth cards",
+M.EXTRA_OPTIONS = { "Auto-&flip cards", "Blue-&green table", "&Card sounds", "S&mooth cards",
                     "Satin tabl&e", "Card s&hadows" }
 local function key(text) return (text or ""):gsub("&", ""):lower() end
 
 function M.with_extras(t)
     local out = { caption = t.caption, w = t.w, h = t.h, x = t.x, y = t.y, style = t.style, controls = {} }
     local push_y, left = nil, nil
-    -- A fourth scoring choice, "Windows 7", under "None": the Scoring box
-    -- grows a row and whatever is below it in its column moves down.
+    -- Two more scoring choices, "Windows 7" and "Klondike", under "None":
+    -- the Scoring box grows two rows and whatever is below it in its
+    -- column moves down.
     local none, group
     for _, c in ipairs(t.controls) do
         if key(c.text) == "none" then none = c end
         if key(c.text) == "scoring" then group = c end
     end
-    local grow = (none and group) and 12 or 0
+    local grow = (none and group) and 24 or 0
     for _, c in ipairs(t.controls) do
         local copy = {}
         for k, v in pairs(c) do copy[k] = v end
@@ -118,6 +119,7 @@ function M.with_extras(t)
         out.controls[#out.controls + 1] = copy
         if c == none then
             out.controls[#out.controls + 1] = button(c.x, c.y + 12, c.w, c.h, 209, "&Windows 7", BS_AUTORADIOBUTTON)
+            out.controls[#out.controls + 1] = button(c.x, c.y + 24, c.w, c.h, 210, "Klon&dike", BS_AUTORADIOBUTTON)
         end
         local style = c.style & 0xF
         if (c.class or ""):lower() == "button" then
@@ -146,12 +148,27 @@ function M.with_extras(t)
             out.h = out.h + d
         end
     end
-    local row, shift = 12, #M.EXTRA_OPTIONS * 12 + 2
+    -- The Klondike mode's suits: a row of three in their own box.
+    local suits_h = 26
+    -- The port's options in two columns, to keep the dialog short enough
+    -- for a 640 x 480 screen.
+    local rows = (#M.EXTRA_OPTIONS + 1) // 2
+    local row, shift = 12, suits_h + rows * 12 + 2
     for _, c in ipairs(out.controls) do
         if c.y >= push_y then c.y = c.y + shift end
     end
+    local sw = t.w - 2 * left
+    out.controls[#out.controls + 1] = button(left, push_y, sw, suits_h - 4, 219, "Klondike suits", BS_GROUPBOX)
+    local third = (sw - 12) // 3
+    for k, text in ipairs({ "&1 suit", "&2 suits", "&4 suits" }) do
+        out.controls[#out.controls + 1] = button(left + 6 + (k - 1) * third, push_y + 9, third - 2, 12, 219 + k, text,
+                                                 BS_AUTORADIOBUTTON | (k == 1 and (WS_GROUP | WS_TABSTOP) or 0))
+    end
+    push_y = push_y + suits_h
+    local half = (t.w - 2 * left) // 2
     for k, text in ipairs(M.EXTRA_OPTIONS) do
-        out.controls[#out.controls + 1] = button(left, push_y + (k - 1) * row, t.w - 2 * left, 12, 200 + k, text,
+        local col, r = (k - 1) // rows, (k - 1) % rows
+        out.controls[#out.controls + 1] = button(left + col * (half + 6), push_y + r * row, half - 6, 12, 200 + k, text,
                                                  BS_AUTOCHECKBOX | WS_TABSTOP | (k == 1 and WS_GROUP or 0))
     end
     out.h = out.h + shift
