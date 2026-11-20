@@ -143,10 +143,13 @@ mode's game (all of the above) with a choice of suits under **Klondike
 suits**, as the later Windows Spider offers (`scripts/game/klondike.lua`):
 
 - **4 suits:** the ordinary deck.
-- **2 suits:** spades and hearts, two of each card; columns still build
-  down in alternating colours.
-- **1 suit:** four sets of spades; with no colours to alternate, columns
-  build down by rank alone, as in Spider.
+- **2 suits:** spades and hearts, two of each card.
+- **1 suit:** four sets of spades.
+
+With any number of suits, a card goes on a column one rank higher either
+of the other colour (as in Klondike) or of the same suit (as in Spider):
+the 9 of spades on the 10 of hearts or on the 10 of spades, but not on the
+10 of clubs.
 
 Foundations build up by suit from the Ace, so with fewer suits several
 hold the same one. Statistics are kept for each number of suits

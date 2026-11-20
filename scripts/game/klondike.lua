@@ -4,10 +4,13 @@
 -- the later Windows Spider offers:
 --
 --   4 suits  the ordinary deck.
---   2 suits  spades and hearts, two of each card. Columns still build down
---            in alternating colours (black on red, red on black).
---   1 suit   four sets of spades. With no colours to alternate, columns
---            build down by rank alone, as in Spider.
+--   2 suits  spades and hearts, two of each card.
+--   1 suit   four sets of spades.
+--
+-- Columns build down one rank at a time onto a card of the other colour,
+-- as in Klondike, or onto one of the same suit, as in Spider (so with
+-- 1 suit, always the same suit). Runs moved together follow the same
+-- rule only at the card they're put on.
 --
 -- Foundations build up by suit from the Ace as always; with fewer suits,
 -- several foundations hold the same suit. Its statistics are kept apart
@@ -44,16 +47,17 @@ function M:new_deck()
     return deck
 end
 
--- Builds down: alternating colours with 2 or 4 suits, by rank alone with
--- 1. Everything else as in the Windows 7 mode.
+-- Builds down onto the other colour or the same suit. Everything else as
+-- in the Windows 7 mode.
 function M:can_drop(cards, kind, index)
-    if kind ~= "tab" or self.suits ~= 1 then return win7.can_drop(self, cards, kind, index) end
+    if kind ~= "tab" then return win7.can_drop(self, cards, kind, index) end
     local first = cards[1]
     if not first then return false end
     local p = self.tab[index]
     local t = p[#p]
     if not t then return first.rank == 13 end
-    return t.up and first.rank == t.rank - 1
+    if not t.up or first.rank ~= t.rank - 1 then return false end
+    return red(t) ~= red(first) or t.suit == first.suit
 end
 
 function M.restore(text) return win7.restore(text, M) end

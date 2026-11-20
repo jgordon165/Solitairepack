@@ -136,8 +136,8 @@ and `--seed` are repeatable.
 
 The Klondike mode (Options > Scoring > Klondike) is the Windows 7 mode
 with 1, 2 or 4 suits (`scripts/game/klondike.lua`): 2 suits deals spades
-and hearts twice over and keeps the alternating colours; 1 suit deals four
-sets of spades and builds columns by rank alone. Statistics per number of
+and hearts twice over, 1 suit four sets of spades. Columns build down onto
+the other colour or the same suit, whatever the number of suits. Statistics per number of
 suits; its own saved game.
 
 The Windows 7 mode (Options > Scoring > Windows 7) is Klondike as the
