@@ -18,6 +18,13 @@ Do the same for `CARDS.DLL`, which holds the card art.
 tables as `strings.txt`. Use them to check `scripts/game/cards.lua` (which
 bitmap is which card, which are the backs and the empty-pile marks).
 
+## 1b. A quick disassembly
+
+`tools/ne_disasm.py` (needs `pip install capstone`) writes each code
+segment of an expanded SOL.EXE as an annotated .asm file, calls to KERNEL,
+GDI and USER named. The seg:offset addresses in `docs/original.md` refer
+to its output.
+
 ## 2. Decompile
 
 ```

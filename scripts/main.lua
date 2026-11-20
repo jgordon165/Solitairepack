@@ -134,11 +134,20 @@ local hint                 -- the hint showing: { move, t }, or nil
 local hint_index = 0
 local auto_t = 0           -- the Windows 7 mode's auto-complete clock
 
-local function fresh_game()
+-- The deal plays out card by card, as SOL.EXE draws it (table.DEAL_ORDER):
+-- `dealing` counts the cards on the columns so far; nil when it's done.
+local dealing, deal_t = nil, 0
+local DEAL_CARD_TIME = 0.035   -- seconds a card (the original went as fast as the PC drew)
+
+local function fresh_game(animate)
     drag, win, hint = nil, nil, nil
     hint_index, auto_t = 0, 0
     if kb then kb.held = nil end
+    dealing, deal_t = animate and 0 or nil, 0
 end
+
+-- A click or a key during the deal finishes it at once.
+local function finish_deal() dealing = nil end
 
 function game.deal(same_deal)
     -- In Vegas with Keep score, the bank carries what this deal left.
@@ -156,7 +165,7 @@ function game.deal(same_deal)
         with_sounds(g)
         g:deal(new_seed())
     end
-    fresh_game()
+    fresh_game(true)
     save()
 end
 
@@ -560,6 +569,7 @@ end
 -- ---- input --------------------------------------------------------------------------------
 
 function game.mousepressed(x, y, button, clicks)
+    if dealing then finish_deal() end
     mouse_x, mouse_y = x, y
     hint = nil
     if kb then kb.show = false end
@@ -672,6 +682,7 @@ local function kb_select()
 end
 
 function game.keypressed(k, isrepeat)
+    if dealing then finish_deal() end
     if win then if not isrepeat then end_win() end; return end
     if modal then modal:keypressed(k); return end
     if bar:keypressed(k) then return end
@@ -707,6 +718,16 @@ end
 -- ---- every frame --------------------------------------------------------------------------
 
 function game.update(dt)
+    if dealing then
+        deal_t = deal_t + dt
+        while dealing and deal_t >= DEAL_CARD_TIME do
+            deal_t = deal_t - DEAL_CARD_TIME
+            dealing = dealing + 1
+            if S.sound then sp.sfx("click", 0.35) end
+            if dealing >= #table_.DEAL_ORDER then dealing = nil end
+        end
+        return
+    end
     game.last_dt = dt   -- the cascade runs in game.draw, at this frame's pace
     if hint then
         hint.t = hint.t + dt
@@ -842,7 +863,7 @@ function game.draw()
     decor.draw_satin(L.area.x, L.area.y, L.area.w, L.area.h)
     local held = drag and drag.moved and not S.outline and drag or nil
     if kb and kb.held and not drag then held = nil end
-    table_.draw(L, g, S.back, held, anim.frame)
+    table_.draw(L, g, S.back, held, anim.frame, dealing)
     draw_dragged()
     draw_cursor()
     draw_hint()
