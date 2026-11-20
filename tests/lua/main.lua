@@ -311,7 +311,29 @@ do
     check(found_hint, "1 suit: the hints use its rule")
     local two = blank_k(2)
     two.tab[1] = { C(10, 3) }
-    check(two:can_drop({ C(9, 2) }, "tab", 1) and not two:can_drop({ C(9, 3) }, "tab", 1), "2 suits: alternating colours")
+    check(two:can_drop({ C(9, 2) }, "tab", 1), "2 suits: the other colour (9H on 10S)")
+    check(two:can_drop({ C(9, 3) }, "tab", 1), "2 suits: the same suit (9S on 10S)")
+    check(not two:can_drop({ C(8, 3) }, "tab", 1), "2 suits: still one down")
+    local four = blank_k(4)
+    four.tab[1] = { C(10, 3) }
+    check(four:can_drop({ C(9, 3) }, "tab", 1), "4 suits: the same suit (9S on 10S)")
+    check(four:can_drop({ C(9, 1) }, "tab", 1) and four:can_drop({ C(9, 2) }, "tab", 1), "4 suits: either red")
+    check(not four:can_drop({ C(9, 0) }, "tab", 1), "4 suits: not the other black suit (9C on 10S)")
+    four.tab[2] = { C(6, 1, false), C(9, 3), C(8, 3) }
+    check(four:move("tab", 2, 2, "tab", 1) and #four.tab[1] == 3, "4 suits: a same-suit run moved")
+    local hint_ok = false
+    local h4 = blank_k(4)
+    h4.tab[1] = { C(10, 0) }
+    h4.tab[2] = { C(3, 2, false), C(9, 0) }
+    for _, m in ipairs(h4:hints()) do
+        if m.from.index == 2 and m.to and m.to.index == 1 then hint_ok = true end
+    end
+    check(hint_ok, "4 suits: hints offer same-suit moves (9C onto 10C)")
+    -- The Windows 7 mode keeps the classic rule.
+    local w7 = require("game.win7").new({ draw = 1 })
+    w7:deal(1)
+    w7.tab[1] = { C(10, 3) }
+    check(not w7:can_drop({ C(9, 3) }, "tab", 1), "Windows 7 mode: alternating colours only")
     local s2 = klondike.new({ suits = 2, draw = 3, timed = true }):deal(5)
     s2:draw(); s2:start()
     local back = klondike.restore(s2:save())
