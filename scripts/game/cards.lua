@@ -26,8 +26,18 @@ local faces, backs, marks, frames = {}, {}, {}, {}
 local empty
 M.have_art = false
 
--- The table: Windows 3.1's Solitaire green.
+-- The table's colour: Windows 3.1's Solitaire green, or the blue-green of
+-- the later Windows card games (Spider). M.TABLE is changed in place.
+M.TABLES = {
+    classic = { 0, 128, 0 },
+    spider = { 0, 112, 104 },
+}
 M.TABLE = { 0, 128, 0 }
+
+function M.set_table(name)
+    local c = M.TABLES[name] or M.TABLES.classic
+    M.TABLE[1], M.TABLE[2], M.TABLE[3] = c[1], c[2], c[3]
+end
 
 function M.face_id(card) return card.suit * 13 + card.rank end
 
@@ -52,7 +62,9 @@ function M.load()
         if h then backs[id] = h; M.backs[#M.backs + 1] = id end
     end
     for _, id in ipairs({ M.X_MARK, M.O_MARK }) do
-        local h = sp.bitmap(id, "cards", true)
+        -- Drawn on the original's green: that green is left clear, so they
+        -- sit on whichever table colour is chosen.
+        local h = sp.bitmap(id, "cards", { round = true, clear_color = { 0, 128, 0 } })
         if h then marks[id] = h end
     end
     -- A monochrome bitmap the original draws with the table green as its

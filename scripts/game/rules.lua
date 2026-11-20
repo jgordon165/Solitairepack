@@ -46,7 +46,9 @@ end
 
 -- opts: draw (1 or 3), scoring ("standard", "vegas", "none"), timed,
 -- keep_score (Vegas: carry the bank over from deal to deal), bank (the
--- carried-over Vegas score).
+-- carried-over Vegas score), auto_flip (turn a column's new top card face
+-- up as soon as it's uncovered, as the later Windows card games do, rather
+-- than waiting for a click).
 function M.new(opts)
     opts = opts or {}
     local g = setmetatable({}, M)
@@ -55,6 +57,7 @@ function M.new(opts)
     g.timed = opts.timed ~= false
     g.keep_score = opts.keep_score or false
     g.bank = opts.bank or 0
+    g.auto_flip = opts.auto_flip or false
     return g
 end
 
@@ -252,6 +255,14 @@ function M:move(from_kind, from_index, i, to_kind, to_index)
     for _ = i, #src do table.remove(src) end
     local dst = self:pile(to_kind, to_index)
     for _, c in ipairs(run) do table.insert(dst, c) end
+    -- Auto flip: the card uncovered in the column turns up, scored as a
+    -- turned-over card; Undo puts both back in one step.
+    self.flipped = nil
+    if self.auto_flip and from_kind == "tab" and #src > 0 and not src[#src].up then
+        src[#src].up = true
+        self.flipped = from_index
+        if self.scoring == "standard" then self:add(M.SCORE.turn_over) end
+    end
     if from_kind == "waste" then
         self.waste_shown = math.max(0, self.waste_shown - 1)
         if self.waste_shown == 0 and #self.waste > 0 then self.waste_shown = 1 end

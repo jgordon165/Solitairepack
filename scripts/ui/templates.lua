@@ -83,6 +83,37 @@ function M.message(caption, lines, buttons)
     return t
 end
 
+-- The port's own options, added below the original's in the Options
+-- dialog (SOL.EXE's or the stand-in): a copy of t with three more check
+-- boxes and the OK / Cancel row moved down to make room.
+M.EXTRA_OPTIONS = { "&Flip cards automatically", "Blue-&green table", "&Card sounds" }
+function M.with_extras(t)
+    local out = { caption = t.caption, w = t.w, h = t.h, x = t.x, y = t.y, style = t.style, controls = {} }
+    local push_y, left = nil, nil
+    for _, c in ipairs(t.controls) do
+        local copy = {}
+        for k, v in pairs(c) do copy[k] = v end
+        out.controls[#out.controls + 1] = copy
+        local style = c.style & 0xF
+        if (c.class or ""):lower() == "button" then
+            if style == 0 or style == 1 then push_y = math.min(push_y or c.y, c.y)
+            elseif style == 2 or style == 3 then left = math.min(left or c.x, c.x) end
+        end
+    end
+    push_y = push_y or t.h - 18
+    left = left or 6
+    local row, shift = 12, #M.EXTRA_OPTIONS * 12 + 2
+    for _, c in ipairs(out.controls) do
+        if c.y >= push_y then c.y = c.y + shift end
+    end
+    for k, text in ipairs(M.EXTRA_OPTIONS) do
+        out.controls[#out.controls + 1] = button(left, push_y + (k - 1) * row, t.w - 2 * left, 12, 200 + k, text,
+                                                 BS_AUTOCHECKBOX | WS_TABSTOP | (k == 1 and WS_GROUP or 0))
+    end
+    out.h = t.h + shift
+    return out
+end
+
 -- SOL.EXE's dialog whose caption matches (lower case, no "&" or "..."), or nil.
 local cache = {}
 function M.find_sol(caption)

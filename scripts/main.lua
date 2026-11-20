@@ -75,12 +75,56 @@ local function save()
     settings.save(S)
 end
 
+-- ---- sounds -------------------------------------------------------------------
+-- The card sounds (the original is silent): a click when a card is laid
+-- down, a swish when one turns over, a riffle from the stock. Played by
+-- wrapping the game's moves, so every way of making a move (mouse,
+-- keyboard, controller, double- and right-click) sounds the same.
+
+local function sfx(name, gain)
+    if S.sound then sp.sfx(name, gain) end
+end
+
+local function with_sounds(game_)
+    local move, draw, flip, autoplay = game_.move, game_.draw, game_.flip, game_.autoplay
+    function game_:move(...)
+        local ok = move(self, ...)
+        if ok and not self.quiet then
+            sfx("click")
+            if self.flipped then sfx("flip", 0.8) end
+        end
+        return ok
+    end
+    function game_:draw()
+        local from_stock = #self.stock > 0
+        local ok = draw(self)
+        if ok then sfx(from_stock and "deal" or "flip") end
+        return ok
+    end
+    function game_:flip(index)
+        local ok = flip(self, index)
+        if ok then sfx("flip") end
+        return ok
+    end
+    -- Right-click sends many cards up at once: one click for them all.
+    function game_:autoplay()
+        self.quiet = true
+        local n = autoplay(self)
+        self.quiet = false
+        if n > 0 then sfx("click") end
+        return n
+    end
+    return game_
+end
+
 -- ---- dealing ------------------------------------------------------------------
 
 function game.deal()
     -- In Vegas with Keep score, the bank carries what this deal left.
     if g and g.scoring == "vegas" and S.keep_score then S.bank = g.score end
-    g = rules.new({ draw = S.draw, scoring = S.scoring, timed = S.timed, keep_score = S.keep_score, bank = S.bank })
+    g = rules.new({ draw = S.draw, scoring = S.scoring, timed = S.timed, keep_score = S.keep_score, bank = S.bank,
+                    auto_flip = S.auto_flip })
+    with_sounds(g)
     g:deal(new_seed())
     drag, win = nil, nil
     if kb then kb.held = nil end
@@ -99,10 +143,13 @@ local option_keys = {
     ["standard"] = { "scoring", "standard" }, ["vegas"] = { "scoring", "vegas" }, ["none"] = { "scoring", "none" },
     ["timed game"] = { "timed", true }, ["status bar"] = { "status", true },
     ["outline dragging"] = { "outline", true }, ["keep score"] = { "keep_score", true },
+    -- The port's own, from the later Windows card games (templates.with_extras).
+    ["flip cards automatically"] = { "auto_flip", true }, ["blue-green table"] = { "blue_green", true },
+    ["card sounds"] = { "sound", true },
 }
 
 local function open_options()
-    local t = templates.find_sol("options") or templates.options
+    local t = templates.with_extras(templates.find_sol("options") or templates.options)
     local values = {}
     for _, c in ipairs(t.controls) do
         local k = option_keys[Dialog.key(c.text)]
@@ -133,6 +180,8 @@ local function open_options()
                 end
             end
             if S.scoring ~= "vegas" then S.keep_score = false end
+            cards.set_table(S.blue_green and "spider" or "classic")
+            g.auto_flip = S.auto_flip
             relayout()
             save()
             -- Changing how it's played or scored starts a new game, as in the original.
@@ -259,6 +308,7 @@ function game.load()
     W, H = sp.canvas()
     sp.title("Solitaire")
     S = settings.load()
+    cards.set_table(S.blue_green and "spider" or "classic")
     cards.load()
     -- A back that isn't in this file (or the empty-pile pattern, 53, which an
     -- earlier version offered as a back) falls back to the first.
