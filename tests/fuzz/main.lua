@@ -1,6 +1,7 @@
 -- Random play through the game's input (ctest "fuzz"): clicks, drags,
 -- right-clicks, double-clicks, keys, controller buttons and window
--- resizes, 40 a frame, half of it in the Windows 7 mode,
+-- resizes, 40 a frame, in turn in every mode (Klondike with each number
+-- of suits too),
 -- checking after each that no script error happened and no card was lost.
 -- FUZZSEED picks the sequence. Exit is ignored so the run goes the distance.
 
@@ -26,12 +27,15 @@ game.update = function(dt)
       local g = game.current()
       assert(g:count() == 52, "lost cards: " .. g:count())
       if r(300) == 0 then game.keypressed("f2", false) end
-      -- Half the time in the Windows 7 mode: switch through Options every
-      -- 3,000 actions.
+      -- Through the modes in turn, every 3,000 actions: Standard, Windows 7,
+      -- Klondike with 1, 2 and 4 suits.
       if it % 3000 == 0 then
+        local steps = { { "a" }, { "w" }, { "d", "1" }, { "d", "2" }, { "d", "4" } }
+        local keys_ = steps[(it // 3000) % #steps + 1]
         game.keypressed("escape", false); game.keypressed("escape", false)
         game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
-        game.keypressed(game.current().win7 and "a" or "w", false); game.keypressed("return", false)
+        for _, k in ipairs(keys_) do game.keypressed(k, false) end
+        game.keypressed("return", false)
       end
       -- Now and then the window changes size (the canvas with it).
       if r(150) == 0 then

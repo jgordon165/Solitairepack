@@ -6,7 +6,8 @@ local M = {}
 
 M.defaults = {
     draw = 3,                 -- Draw Three, the original's default
-    scoring = "standard",     -- "standard", "vegas", "none"
+    scoring = "standard",     -- "standard", "vegas", "none", "win7", "klondike"
+    suits = 4,                -- the Klondike mode's: 1, 2 or 4
     timed = true,
     status = true,            -- the status bar
     outline = false,          -- Outline dragging
@@ -34,7 +35,9 @@ function M.load()
         end
     end
     if s.draw ~= 1 and s.draw ~= 3 then s.draw = 3 end
-    if s.scoring ~= "standard" and s.scoring ~= "vegas" and s.scoring ~= "none" then s.scoring = "standard" end
+    local modes = { standard = true, vegas = true, none = true, win7 = true, klondike = true }
+    if not modes[s.scoring] then s.scoring = "standard" end
+    if s.suits ~= 1 and s.suits ~= 2 and s.suits ~= 4 then s.suits = 4 end
     return s
 end
 

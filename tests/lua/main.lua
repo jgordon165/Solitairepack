@@ -271,6 +271,64 @@ do
     st.reset()
 end
 
+-- ---- the Klondike mode: 1, 2 or 4 suits (game/klondike.lua) ----------------------------------------
+do
+    local klondike = require("game.klondike")
+    local function suits_of(g)
+        local n = {}
+        local function count(p) for _, c in ipairs(p) do n[c.suit] = (n[c.suit] or 0) + 1 end end
+        count(g.stock)
+        for i = 1, 7 do count(g.tab[i]) end
+        return n
+    end
+    for _, s in ipairs({ 1, 2, 4 }) do
+        local g = klondike.new({ suits = s, draw = 1 }):deal(9)
+        check(g:count() == 52 and g.suits == s and g.win7 and g.scoring == "klondike", "klondike " .. s .. ": the deal")
+        local n = suits_of(g)
+        if s == 1 then check(n[3] == 52, "1 suit: 52 spades") end
+        if s == 2 then check(n[3] == 26 and n[2] == 26, "2 suits: 26 spades, 26 hearts") end
+        if s == 4 then check(n[0] == 13 and n[1] == 13 and n[2] == 13 and n[3] == 13, "4 suits: the ordinary deck") end
+    end
+    local function blank_k(s)
+        local g = klondike.new({ suits = s, draw = 1, timed = false })
+        g:deal(1)
+        g.stock, g.waste, g.found = {}, {}, { {}, {}, {}, {} }
+        for i = 1, 7 do g.tab[i] = {} end
+        return g
+    end
+    local one = blank_k(1)
+    one.tab[1] = { C(10, 3) }
+    check(one:can_drop({ C(9, 3) }, "tab", 1), "1 suit: by rank alone (9S on 10S)")
+    check(not one:can_drop({ C(8, 3) }, "tab", 1), "1 suit: still one down")
+    one.found[1] = { C(1, 3) }
+    check(one:can_drop({ C(1, 3) }, "found", 2) and one:can_drop({ C(2, 3) }, "found", 1), "1 suit: aces on any empty foundation")
+    one.tab[2] = { C(4, 3, false), C(9, 3) }
+    local h = one:hints()
+    local found_hint = false
+    for _, m in ipairs(h) do
+        if m.from.kind == "tab" and m.from.index == 2 and m.to and m.to.index == 1 then found_hint = true end
+    end
+    check(found_hint, "1 suit: the hints use its rule")
+    local two = blank_k(2)
+    two.tab[1] = { C(10, 3) }
+    check(two:can_drop({ C(9, 2) }, "tab", 1) and not two:can_drop({ C(9, 3) }, "tab", 1), "2 suits: alternating colours")
+    local s2 = klondike.new({ suits = 2, draw = 3, timed = true }):deal(5)
+    s2:draw(); s2:start()
+    local back = klondike.restore(s2:save())
+    check(back and back.suits == 2 and back.scoring == "klondike" and back:count() == 52, "saved and restored with its suits")
+    check(back and back.can_drop == klondike.can_drop, "restored as the Klondike mode")
+    check(klondike.stats_key(1) ~= klondike.stats_key(2) and klondike.stats_key(4) ~= "win7_stats",
+          "statistics kept apart per number of suits")
+    -- The settings keep these modes (an earlier version reset them to Standard).
+    sp.storage_write("options", "scoring=win7\nsuits=2\n")
+    local st = require("game.settings").load()
+    check(st.scoring == "win7" and st.suits == 2, "the Windows 7 mode is remembered")
+    sp.storage_write("options", "scoring=klondike\nsuits=3\n")
+    st = require("game.settings").load()
+    check(st.scoring == "klondike" and st.suits == 4, "the Klondike mode is remembered; a bad suit count isn't")
+    sp.storage_write("options", "")
+end
+
 -- ---- SOL.EXE's deal order and its win animation's motion -------------------------------------------
 do
     local t = require("game.table")
@@ -572,10 +630,26 @@ if game and game.current then
         game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("t", false)   -- Statistics
         game.draw()
         game.keypressed("return", false)
+        -- The Klondike mode with 2 suits.
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("d", false); game.keypressed("2", false); game.keypressed("return", false)
+        local k = game.current()
+        check(k.scoring == "klondike" and k.suits == 2, "the Klondike mode, 2 suits")
+        game.update(1); game.draw()
+        game.mousepressed(game.layout().stock.x + 10, game.layout().stock.y + 10, "left", 1)
+        game.quit()
+        check(#(sp.storage_read("klondike_saved") or "") > 50, "its game saved under its own name")
+        -- 1 suit: a new deal (asked first, as a game is in progress).
+        game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
+        game.keypressed("1", false); game.keypressed("return", false)
+        check(game.current().suits == 1, "1 suit")
+        check(st.load(require("game.klondike").stats_key(2)).played == 1, "the 2-suit game given up counted there")
         -- Back to Standard.
         game.keypressed("f10", false); game.keypressed("return", false); game.keypressed("o", false)
         game.keypressed("a", false); game.keypressed("return", false)
         check(not game.current().win7, "back to the classic rules")
+        st.reset(require("game.klondike").stats_key(1)); st.reset(require("game.klondike").stats_key(2))
+        sp.storage_write("klondike_saved", "")
     end)
     check(ok, "the Windows 7 mode: " .. tostring(err))
     st.reset()

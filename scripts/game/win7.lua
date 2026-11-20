@@ -59,12 +59,18 @@ function M.new(opts)
     return g
 end
 
-function M:deal(seed)
-    self.seed = seed or os.time()
+-- The 52 cards before shuffling (a mode can deal a different deck).
+function M:new_deck()
     local deck = {}
     for suit = 0, 3 do
         for rank = 1, 13 do deck[#deck + 1] = { rank = rank, suit = suit, up = false } end
     end
+    return deck
+end
+
+function M:deal(seed)
+    self.seed = seed or os.time()
+    local deck = self:new_deck()
     local rand = rng(self.seed)
     for i = #deck, 2, -1 do
         local j = rand(i) + 1
@@ -148,6 +154,7 @@ end
 function M:save()
     local lines = {
         "seed=" .. self.seed, "draw=" .. self.draw_count, "timed=" .. (self.timed and 1 or 0),
+        "suits=" .. (self.suits or 4),
         "time=" .. string.format("%.2f", self.time), "score=" .. self.score, "moves=" .. self.moves,
         "passes=" .. self.passes, "shown=" .. self.waste_shown,
         "stock=" .. enc_pile(self.stock), "waste=" .. enc_pile(self.waste),
@@ -158,12 +165,15 @@ function M:save()
 end
 
 -- A saved game back (nil if the text isn't one, or doesn't hold 52 cards).
-function M.restore(text)
+-- class: the mode to make it (a mode built on this one, such as
+-- klondike.lua, passes itself).
+function M.restore(text, class)
+    class = class or M
     if not text then return nil end
     local v = {}
     for k, val in text:gmatch("([%w]+)=([^\n]*)") do v[k] = val end
     if not v.seed then return nil end
-    local g = M.new({ draw = tonumber(v.draw), timed = v.timed == "1" })
+    local g = class.new({ draw = tonumber(v.draw), timed = v.timed == "1", suits = tonumber(v.suits) })
     g.seed = tonumber(v.seed)
     g.stock, g.waste, g.found, g.tab = dec_pile(v.stock), dec_pile(v.waste), {}, {}
     for i = 1, 4 do g.found[i] = dec_pile(v["found" .. i]) end

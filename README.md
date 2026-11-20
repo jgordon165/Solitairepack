@@ -94,7 +94,7 @@ game; Status bar; Outline dragging; Keep score (Vegas). Below the
 original's options are the port's own, all on to start with, three of them
 from the later Windows card games (Spider Solitaire):
 
-- **Flip cards automatically:** when a move uncovers a face-down card in a
+- **Auto-flip cards:** when a move uncovers a face-down card in a
   column, it turns up by itself (scored as if clicked; one Undo takes back
   both).
 - **Blue-green table:** the later games' blue-green instead of 3.1's green.
@@ -137,6 +137,20 @@ rules (`scripts/game/win7.lua`):
   seconds. Scoring is the Windows standard (below) with unlimited passes
   through the deck; Draw One/Three and Timed game apply, Keep score
   doesn't.
+
+**Klondike mode.** Options > Scoring > **Klondike** is the Windows 7
+mode's game (all of the above) with a choice of suits under **Klondike
+suits**, as the later Windows Spider offers (`scripts/game/klondike.lua`):
+
+- **4 suits:** the ordinary deck.
+- **2 suits:** spades and hearts, two of each card; columns still build
+  down in alternating colours.
+- **1 suit:** four sets of spades; with no colours to alternate, columns
+  build down by rank alone, as in Spider.
+
+Foundations build up by suit from the Ace, so with fewer suits several
+hold the same one. Statistics are kept for each number of suits
+separately, and the status bar shows which you're playing.
 
 **Scoring.** Standard: 10 for each card to a foundation, 5 from the deck to
 a column and for each card turned over, -15 for taking one off a
