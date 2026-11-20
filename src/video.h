@@ -23,6 +23,10 @@ public:
     bool fitCanvas();
     // Full screen (the desktop's resolution) or back to a window.
     void toggleFullscreen();
+    void windowSize(int& w, int& h) const;
+    bool hasMouseFocus() const;
+    // Moves the mouse pointer to a canvas position.
+    void warpMouse(int cx, int cy);
     int canvasW() const { return cw_; }
     int canvasH() const { return ch_; }
 
@@ -46,6 +50,9 @@ public:
     // pixel under it, through compose()'s scaling and letterbox. False when
     // it falls in the letterbox.
     bool windowToCanvas(int wx, int wy, int& cx, int& cy) const;
+    // The other way: the window position (in points) showing canvas pixel
+    // (cx, cy)'s centre.
+    void canvasToWindow(int cx, int cy, int& wx, int& wy) const;
     void present();
     // Saves what's in the window (the canvas as scaled to it) as a .bmp.
     bool screenshot(const std::string& path);

@@ -261,11 +261,21 @@ int main(int argc, char** argv) {
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) eng.quit = true;
             else if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                // game.resize(w, h): the canvas now has this size.
+                // game.resize(w, h, pointer_free): the canvas now has this
+                // size. pointer_free: the mouse pointer is over the window
+                // with no button held, so the game may move it (sp.warp_mouse)
+                // to stay over what it was over; not while a button is held
+                // (dragging the window's border, say).
                 if (eng.video.fitCanvas()) {
+                    int mx = 0, my = 0, ww = 0, wh = 0;
+                    const Uint32 buttons = SDL_GetMouseState(&mx, &my);
+                    eng.video.windowSize(ww, wh);
+                    const bool free = eng.video.hasMouseFocus() && buttons == 0 && mx >= 0 && my >= 0 &&
+                                      mx < ww && my < wh;
                     lua_pushinteger(L, eng.video.canvasW());
                     lua_pushinteger(L, eng.video.canvasH());
-                    ok = callLua(L, "resize", 2) && ok;
+                    lua_pushboolean(L, free);
+                    ok = callLua(L, "resize", 3) && ok;
                 }
             } else if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_F11 && !ev.key.repeat) {
                 eng.video.toggleFullscreen();

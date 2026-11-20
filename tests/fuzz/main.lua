@@ -30,7 +30,7 @@ game.update = function(dt)
       if r(150) == 0 then
         local w, h = 530 + r(1400), 340 + r(800)
         sp.canvas(w, h)
-        game.resize(w, h)
+        game.resize(w, h, r(2) == 0)
       end
     end)
     if not ok then sp.log("iter " .. it .. ": " .. tostring(err)); sp.quit(1); return end

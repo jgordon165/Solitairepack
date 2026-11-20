@@ -336,6 +336,37 @@ if game and game.resize then
         game.draw()
         game.keypressed("escape", false)
         check_spread(640, 440)
+
+        -- The mouse pointer follows what it was over.
+        local warped
+        local real_warp = sp.warp_mouse
+        sp.warp_mouse = function(x, y) warped = { x, y } end
+        local function pointer_after(x, y, w, h, free)
+            warped = nil
+            game.mousemoved(x, y)
+            game.resize(w, h, free)
+            return warped
+        end
+        local L = game.layout()
+        local fx, fy = L.found[4].x + 20, L.found[4].y + 30            -- over the last foundation
+        local p = pointer_after(fx, fy, 1280, 600, true)
+        local N = game.layout()
+        check(p and p[1] == N.found[4].x + 20 and p[2] == N.found[4].y + 30,
+              "over the last foundation still (" .. (p and (p[1] .. "," .. p[2]) or "no warp") .. ")")
+        local g = game.current()
+        local cs = require("game.table").pile_cards(N, g, "tab", 1)
+        local top = cs[#cs]
+        p = pointer_after(top.x + 10, top.y + 40, 800, 500, true)       -- over column 1's top card
+        local M2 = game.layout()
+        local cs2 = require("game.table").pile_cards(M2, g, "tab", 1)
+        check(p and p[1] == cs2[#cs2].x + 10 and p[2] == cs2[#cs2].y + 40, "over column 1's top card still")
+        p = pointer_after(400, 420, 1600, 500, true)                    -- bare table: as far across
+        check(p and p[1] == 800 and p[2] == 420, "on the bare table, as far across (" ..
+              (p and (p[1] .. "," .. p[2]) or "no warp") .. ")")
+        p = pointer_after(400, 420, 900, 500, false)
+        check(p == nil, "not moved while a button is held or it's outside the window")
+        sp.warp_mouse = real_warp
+        game.resize(640, 440, false)
     end)
     check(ok, "resizing: " .. tostring(err))
 end

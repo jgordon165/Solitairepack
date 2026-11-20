@@ -192,6 +192,29 @@ bool Video::windowToCanvas(int wx, int wy, int& cx, int& cy) const {
     return cx >= 0 && cy >= 0 && cx < cw_ && cy < ch_;
 }
 
+void Video::canvasToWindow(int cx, int cy, int& wx, int& wy) const {
+    int ow = 0, oh = 0, ww = 0, wh = 0;
+    SDL_GetRendererOutputSize(ren_, &ow, &oh);
+    SDL_GetWindowSize(win_, &ww, &wh);
+    wx = wy = 0;
+    if (ow <= 0 || oh <= 0 || ww <= 0 || wh <= 0 || cw_ <= 0 || ch_ <= 0) return;
+    const double s = std::min(double(ow) / cw_, double(oh) / ch_);
+    const double dw = cw_ * s, dh = ch_ * s;
+    const double px = (ow - dw) / 2 + (cx + 0.5) * s, py = (oh - dh) / 2 + (cy + 0.5) * s;
+    wx = static_cast<int>(px * ww / ow);
+    wy = static_cast<int>(py * wh / oh);
+}
+
+void Video::windowSize(int& w, int& h) const { SDL_GetWindowSize(win_, &w, &h); }
+
+bool Video::hasMouseFocus() const { return SDL_GetMouseFocus() == win_; }
+
+void Video::warpMouse(int cx, int cy) {
+    int wx = 0, wy = 0;
+    canvasToWindow(cx, cy, wx, wy);
+    SDL_WarpMouseInWindow(win_, wx, wy);
+}
+
 void Video::present() {
     SDL_RenderPresent(ren_);
     SDL_SetRenderTarget(ren_, canvas_);

@@ -57,7 +57,9 @@ screen, and the table grows with it rather than stretching: the cards keep
 their size, the deck stays in the top left corner and the four foundations
 in the top right, and the seven columns spread out evenly between them,
 with more room below for long columns. Up to 640 pixels wide the spacing is
-the original's (margins as wide as the gaps).
+the original's (margins as wide as the gaps). The mouse pointer moves with
+the table, staying over the card or pile it was over (or the same spot on
+an open dialog); it's left alone while you drag the window's border.
 Without `SOL.EXE` it still runs, with plain cards of its own.
 
 **Playing.** Click the deck to turn over cards (one or three, Game >
